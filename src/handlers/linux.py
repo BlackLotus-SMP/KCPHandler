@@ -1,6 +1,7 @@
 import platform
 
-from src.handlers.kcp_interface import KCP, Detector, Arch, OS
+from src.handlers.kcp_interface import KCP
+from src.helpers.detector import Detector, Arch, OS
 from src.logger.bot_logger import BotLogger
 
 
