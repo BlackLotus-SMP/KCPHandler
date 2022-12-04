@@ -36,7 +36,7 @@ class Detector:
         )
 
     def detect_arch(self, arch: str) -> None | Arch:
-        arch_ = arch.lower()
+        arch_: str = arch.lower()
         for k, arch_detected in self._arch_detector:
             for key in k:
                 if re.search(f"^{key}$", arch_):
@@ -44,7 +44,7 @@ class Detector:
         return None
 
     def detect_os(self, os: str) -> None | OS:
-        os_ = os.lower()
+        os_: str = os.lower()
         for k, os_detected in self._os_detector:
             for key in k:
                 if re.search(f"^{key}$", os_):

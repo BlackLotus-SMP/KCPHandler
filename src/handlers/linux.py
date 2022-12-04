@@ -10,9 +10,9 @@ class InvalidSystemException(Exception):
         super(InvalidSystemException, self).__init__(msg)
 
 
-class LinuxHandler(KCP):
+class SystemHandler(KCP):
     def __init__(self, bot_logger: BotLogger):
-        super(LinuxHandler, self).__init__(bot_logger)
+        super(SystemHandler, self).__init__(bot_logger)
 
     def _download_bin(self):
         detector: Detector = Detector()
