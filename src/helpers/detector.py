@@ -3,9 +3,9 @@ from enum import Enum
 
 
 class Arch(Enum):
-    ARMV5 = "armv5"
-    ARMV6 = "armv6"
-    ARMV7 = "armv7"
+    ARMV5 = "arm5"
+    ARMV6 = "arm6"
+    ARMV7 = "arm7"
     ARM64 = "arm64"
     A386 = "386"
     AMD64 = "amd64"
