@@ -1,3 +1,6 @@
+from datetime import datetime
+from typing import Optional
+
 from src.logger.bot_logger import BotLogger
 from src.service.mode import ServiceMode
 
@@ -6,13 +9,22 @@ class KCPHandler:
     def __init__(self, bot_logger: BotLogger, svc_mode: ServiceMode):
         self._bot_logger: BotLogger = bot_logger
         self._svc_mode: ServiceMode = svc_mode
-        self._download_bin()
 
-    def _download_bin(self):
+    def download_bin(self):
         raise NotImplementedError
 
     def run_kcp(self):
         raise NotImplementedError
+
+    def get_binary_path(self) -> Optional[str]:
+        raise NotImplementedError
+
+    def get_handler_type(self) -> str:
+        return self.__class__.__name__
+
+    @classmethod
+    def get_unique_name(cls) -> str:
+        return datetime.now().strftime("%d%m%Y%H%M%S%f")
 
     def is_client(self) -> bool:
         return self._svc_mode == ServiceMode.CLIENT
