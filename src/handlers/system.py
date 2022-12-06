@@ -3,11 +3,14 @@ import platform
 import re
 import shutil
 import tarfile
+from subprocess import PIPE, Popen, STDOUT
 from typing import Optional
 
 import requests
 
+from src.config.kcp_config import KCPConfig
 from src.handlers.kcp_interface import KCPHandler
+from src.handlers.status import KCPStatus
 from src.helpers.detector import Detector, Arch, OS
 from src.logger.bot_logger import BotLogger
 from src.service.mode import ServiceMode
@@ -23,11 +26,55 @@ class GithubDownloadException(Exception):
         super(GithubDownloadException, self).__init__(msg)
 
 
+class SystemProcessException(Exception):
+    def __init__(self):
+        super(SystemProcessException, self).__init__()
+
+
+class KCPSystemProcess:
+    def __init__(self, bot_logger: BotLogger, kcp_handler: KCPHandler, config: KCPConfig):
+        self._bot_logger: BotLogger = bot_logger
+        self._process: Optional[PIPE] = None
+        self._process_status: KCPStatus = KCPStatus.STARTING
+        self._kcp_handler: KCPHandler = kcp_handler
+        self._config: KCPConfig = config
+
+    def start(self, kcp_path: str):
+        self._start_kcp_process(kcp_path)
+        self._process_status: KCPStatus = KCPStatus.RUNNING
+        try:
+            self._kcp_listener()
+        except SystemProcessException:
+            self._process_status: KCPStatus = KCPStatus.STOPPED
+            self._bot_logger.warning("Process finished")
+        except Exception as e:
+            self._process_status: KCPStatus = KCPStatus.FAILED
+            self._bot_logger.error(e)
+
+    def _start_kcp_process(self, kcp_path: str):
+        if self._kcp_handler.is_client():
+            kcp_command: str = f"{kcp_path} -r {self._config.remote} -l {self._config.listen} -mode {self._config.mode} --crypt {self._config.crypt} --key {self._config.key}"
+        else:
+            kcp_command: str = f"{kcp_path} -t {self._config.remote} -l {self._config.listen} -mode {self._config.mode} --crypt {self._config.crypt} --key {self._config.key}"
+
+        self._process = Popen(kcp_command, stdin=PIPE, stdout=PIPE, stderr=STDOUT, shell=True)
+
+    def _kcp_listener(self):
+        while True:
+            try:
+                text: bytes = next(iter(self._process.stdout))
+            except StopIteration:
+                raise SystemProcessException
+            else:
+                self._bot_logger.info(text.decode("utf8")[:-1])
+
+
 class SystemHandler(KCPHandler):
-    def __init__(self, bot_logger: BotLogger, svc_mode: ServiceMode):
-        super(SystemHandler, self).__init__(bot_logger, svc_mode)
+    def __init__(self, bot_logger: BotLogger, svc_mode: ServiceMode, config: KCPConfig):
+        super(SystemHandler, self).__init__(bot_logger, svc_mode, config)
         self._bot_logger: BotLogger = bot_logger
         self._kcp_file: Optional[str] = None
+        self._config: KCPConfig = config
 
     def download_bin(self):
         detector: Detector = Detector()
@@ -56,7 +103,8 @@ class SystemHandler(KCPHandler):
             raise InvalidSystemException(f"Couldn't find a valid version for this os and arch, information found: os={os_.value}, arch={arch.value}, information retrieved: os={platform.uname().system}, arch={platform.uname().machine}, please report!")
         self._bot_logger.info("Found a valid release!")
         self._bot_logger.info(f"Downloading {download_url}...")
-        shutil.rmtree("resources")
+        if os.path.isdir("resources"):
+            shutil.rmtree("resources")
         if not os.path.isdir("resources"):
             os.mkdir("resources")
         kcp_compressed = requests.get(download_url, stream=True)
@@ -86,4 +134,5 @@ class SystemHandler(KCPHandler):
         return self._kcp_file
 
     def run_kcp(self):
-        pass
+        kcp_process: KCPSystemProcess = KCPSystemProcess(self._bot_logger, self, self._config)
+        kcp_process.start(self._kcp_file)

@@ -1,14 +1,16 @@
 from datetime import datetime
 from typing import Optional
 
+from src.config.kcp_config import KCPConfig
 from src.logger.bot_logger import BotLogger
 from src.service.mode import ServiceMode
 
 
 class KCPHandler:
-    def __init__(self, bot_logger: BotLogger, svc_mode: ServiceMode):
+    def __init__(self, bot_logger: BotLogger, svc_mode: ServiceMode, config: KCPConfig):
         self._bot_logger: BotLogger = bot_logger
         self._svc_mode: ServiceMode = svc_mode
+        self._config: KCPConfig = config
 
     def download_bin(self):
         raise NotImplementedError
