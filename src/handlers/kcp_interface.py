@@ -18,9 +18,6 @@ class KCPHandler:
     def run_kcp(self):
         raise NotImplementedError
 
-    def get_binary_path(self) -> Optional[str]:
-        raise NotImplementedError
-
     def get_handler_type(self) -> str:
         return self.__class__.__name__
 
