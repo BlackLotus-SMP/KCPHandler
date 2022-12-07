@@ -128,10 +128,7 @@ class SystemHandler(KCPHandler):
                 os.remove(f"resources/{bin_file}")
         if not self._kcp_file:
             raise InvalidSystemException(f"Couldn't find a valid executable! information found: os={os_.value}, arch={arch.value}, information retrieved: os={platform.uname().system}, arch={platform.uname().machine}, files found: {', '.join(files)}, please report")
-        self._bot_logger.info(f"Found a valid binary! {self.get_binary_path()} ready!")
-
-    def get_binary_path(self) -> Optional[str]:
-        return self._kcp_file
+        self._bot_logger.info(f"Found a valid binary! {self._kcp_file} ready!")
 
     def run_kcp(self):
         kcp_process: KCPSystemProcess = KCPSystemProcess(self._bot_logger, self, self._config)
