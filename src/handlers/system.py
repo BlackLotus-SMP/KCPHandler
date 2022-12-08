@@ -9,7 +9,7 @@ from typing import Optional
 import requests
 
 from src.config.kcp_config import KCPConfig
-from src.handlers.kcp_interface import KCPHandler
+from src.handlers.kcp_interface import KCPHandler, GithubDownloadException
 from src.handlers.status import KCPStatus
 from src.helpers.detector import Detector, Arch, OS
 from src.logger.bot_logger import BotLogger
@@ -19,11 +19,6 @@ from src.service.mode import ServiceMode
 class InvalidSystemException(Exception):
     def __init__(self, msg: str):
         super(InvalidSystemException, self).__init__(msg)
-
-
-class GithubDownloadException(Exception):
-    def __init__(self, msg: str):
-        super(GithubDownloadException, self).__init__(msg)
 
 
 class SystemProcessException(Exception):

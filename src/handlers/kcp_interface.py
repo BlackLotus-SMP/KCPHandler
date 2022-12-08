@@ -6,6 +6,11 @@ from src.logger.bot_logger import BotLogger
 from src.service.mode import ServiceMode
 
 
+class GithubDownloadException(Exception):
+    def __init__(self, msg: str):
+        super(GithubDownloadException, self).__init__(msg)
+
+
 class KCPHandler:
     def __init__(self, bot_logger: BotLogger, svc_mode: ServiceMode, config: KCPConfig):
         self._bot_logger: BotLogger = bot_logger

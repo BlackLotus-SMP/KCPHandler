@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 from requests.cookies import RequestsCookieJar
 
 from src.config.kcp_config import KCPConfig, KCPClientConfig
-from src.handlers.kcp_interface import KCPHandler
+from src.handlers.kcp_interface import KCPHandler, GithubDownloadException
 from src.helpers.ftp import FTPProcessor, FTPFile
 from src.logger.bot_logger import BotLogger
 from src.service.mode import ServiceMode
@@ -35,6 +35,11 @@ class IPNotFoundException(Exception):
         super(IPNotFoundException, self).__init__(msg)
 
 
+class ServerModeNotValidException(Exception):
+    def __init__(self, msg: str):
+        super(ServerModeNotValidException, self).__init__(msg)
+
+
 class ApexHandler(KCPHandler):
     def __init__(self, bot_logger: BotLogger, svc_mode: ServiceMode, config: KCPConfig, panel_user: str, panel_passwd: str):
         super(ApexHandler, self).__init__(bot_logger, svc_mode, config)
@@ -46,7 +51,7 @@ class ApexHandler(KCPHandler):
         self._url: str = "https://panel.apexminecrafthosting.com"
         self._login_url: str = "https://panel.apexminecrafthosting.com/site/login"
         if self.is_server():
-            raise Exception(f"Apex hosting can't be used as a server yet!")
+            raise ServerModeNotValidException(f"Apex hosting can't be used as a server yet!")
 
         self._default_headers: dict[str, str] = {
             "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:107.0) Gecko/20100101 Firefox/107.0",
@@ -127,16 +132,20 @@ class ApexHandler(KCPHandler):
         server_ip, server_port, ftp_port, ftp_user = self._get_ftp_creds(dashboard, server_id)
         url = "https://api.github.com/repos/BlackLotus-SMP/GOKCPJavaDeploy/releases"
         java_release_ver = "17"
-        r = requests.get(url)
+        try:
+            r = requests.get(url)
+        except Exception as e:
+            self._bot_logger.error(f"Unable to get valid KCP assets {e}")
+            raise GithubDownloadException(f"Unable to get valid KCP assets {e}")
         if r.status_code != 200:
-            raise Exception
+            raise GithubDownloadException(f"Unable to get a valid release, got status code {r.status_code}!")
         download_url = ""
         for release in r.json():
             if release.get("name") == f"java-{java_release_ver}":
                 download_url = release.get("assets")[0].get("browser_download_url")
                 break
         if not download_url:
-            raise Exception
+            raise GithubDownloadException(f"Unable to get valid KCP assets {e}")
 
         local_resources: str = "resources"
         jar_name: str = "apex_java"
