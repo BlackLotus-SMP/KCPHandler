@@ -28,24 +28,22 @@ class FTPProcessor:
             parsed_file_list.append(FTPFile(parsed[-1], parsed[0][0]))
         return parsed_file_list
 
-    def create_dir(self, dir_: str):
+    def create_dir(self, dir_: str, base_path: str = "/"):
+        self._ftp.cwd(base_path)
         self._ftp.mkd(dir_)
+        self._ftp.cwd("/")
 
     def delete_file(self, file_path: str):
         self._ftp.delete(file_path)
 
-    def upload_file(self, file_path: str, file_name: str, remote_dir: str = ""):
-        if not remote_dir:
-            remote_dir = "/"
-        self._ftp.cwd(remote_dir)
+    def upload_file(self, file_path: str, file_name: str, base_path: str = "/"):
+        self._ftp.cwd(base_path)
         self._ftp.storbinary(f"STOR {file_name}", open(file_path, "rb"))
         self._ftp.cwd("/")
 
-    def list_files(self, dir_: str = "") -> list[FTPFile]:
+    def list_files(self, base_path: str = "/") -> list[FTPFile]:
         data: list = []
-        if not dir_:
-            dir_ = "/"
-        self._ftp.cwd(dir_)
+        self._ftp.cwd(base_path)
         self._ftp.dir(data.append)
         self._ftp.cwd("/")
         return self.get_files(data)

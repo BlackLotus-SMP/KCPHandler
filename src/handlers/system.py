@@ -66,7 +66,8 @@ class KCPSystemProcess:
             except StopIteration:
                 raise SystemProcessException
             else:
-                self._bot_logger.info(text.decode("utf8")[:-1])
+                pass
+                # self._bot_logger.info(text.decode("utf8")[:-1])
 
 
 class SystemHandler(KCPHandler):

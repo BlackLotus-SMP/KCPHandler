@@ -1,4 +1,5 @@
 import ftplib
+import json
 import os
 import re
 from typing import Optional
@@ -7,7 +8,7 @@ import requests
 from bs4 import BeautifulSoup
 from requests.cookies import RequestsCookieJar
 
-from src.config.kcp_config import KCPConfig
+from src.config.kcp_config import KCPConfig, KCPClientConfig
 from src.handlers.kcp_interface import KCPHandler
 from src.helpers.ftp import FTPProcessor, FTPFile
 from src.logger.bot_logger import BotLogger
@@ -116,6 +117,7 @@ class ApexHandler(KCPHandler):
         self._cookies.update(r.cookies)
 
     def download_bin(self):
+        # TODO this needs some cleanup :P
         dashboard = self._login()
         server_url: str = f"{self._url}{self._get_server_url(dashboard)}"
         redirect_server_url: str = f"{self._url}{self._get_redirect_url(dashboard)}"
@@ -135,36 +137,75 @@ class ApexHandler(KCPHandler):
                 break
         if not download_url:
             raise Exception
-        if not os.path.isdir("resources"):
-            os.mkdir("resources")
-        if os.path.isfile(f"resources/apex_java-{java_release_ver}.jar"):
-            os.remove(f"resources/apex_java-{java_release_ver}.jar")
+
+        local_resources: str = "resources"
+        jar_name: str = "apex_java"
+        if not os.path.isdir(local_resources):
+            os.mkdir(local_resources)
+        if os.path.isfile(f"{local_resources}/{jar_name}-{java_release_ver}.jar"):
+            os.remove(f"{local_resources}/{jar_name}-{java_release_ver}.jar")
+
         kcp_jar = requests.get(download_url, stream=True)
-        with open(f"resources/apex_java-{java_release_ver}.jar", "wb") as f:
+        with open(f"{local_resources}/{jar_name}-{java_release_ver}.jar", "wb") as f:
             for chunk in kcp_jar.iter_content(chunk_size=2048):
                 if chunk:
                     f.write(chunk)
+
         with ftplib.FTP(host=server_ip, user=ftp_user, passwd=self._panel_passwd) as ftp:
             ftp_processor: FTPProcessor = FTPProcessor(ftp)
-            source: list[FTPFile] = ftp_processor.list_files()
-            found: bool = False
-            for f in source:
+
+            root_files: list[FTPFile] = ftp_processor.list_files()
+            jar_dir_found: bool = False
+            data_dir_found: bool = False
+            for f in root_files:
                 if f.is_dir() and f.get_name() == "jar":
-                    found: bool = True
-            if not found:
+                    jar_dir_found: bool = True
+                if f.is_dir() and f.get_name() == "data":
+                    data_dir_found: bool = True
+            if not jar_dir_found:
                 ftp_processor.create_dir("jar")
+            if not data_dir_found:
+                ftp_processor.create_dir("data")
+
+            data_files: list[FTPFile] = ftp_processor.list_files("data")
+            config_dir_found: bool = False
+            for f in data_files:
+                if f.is_dir() and f.get_name() == "config":
+                    config_dir_found: bool = True
+
+            if not config_dir_found:
+                ftp_processor.create_dir("config", base_path="data")
+
+            config_files: list[FTPFile] = ftp_processor.list_files("data/config")
+            config_file_found: bool = False
+            for f in config_files:
+                if not f.is_dir() and f.get_name() == "config.json":
+                    config_file_found: bool = True
+            if config_file_found:
+                ftp_processor.delete_file("data/config/config.json")
+
             jar_files: list[FTPFile] = ftp_processor.list_files("jar")
             jar_found: bool = False
             for f in jar_files:
-                if not f.is_dir() and f.get_name() == f"apex_java-{java_release_ver}.jar":
+                if not f.is_dir() and f.get_name() == f"{jar_name}-{java_release_ver}.jar":
                     jar_found: bool = True
             if jar_found:
-                ftp_processor.delete_file(f"jar/apex_java-{java_release_ver}.jar")
-            ftp_processor.upload_file(f"resources/apex_java-{java_release_ver}.jar", f"apex_java-{java_release_ver}.jar", "jar")
-        os.remove(f"resources/apex_java-{java_release_ver}.jar")
-        # self._get_ftp_creds(server_id)
-        # self._bot_logger.info(server_url)
-        # self._bot_logger.info(server_id)
+                ftp_processor.delete_file(f"jar/{jar_name}-{java_release_ver}.jar")
+
+            config: dict[str, str] = {
+                "remoteaddr": self._config.remote,
+                "localaddr": self._config.listen,
+                "mode": self._config.mode,
+                "crypt": self._config.crypt,
+                "key": self._config.key
+            }
+            with open(f"{local_resources}/config.json", "w") as f:
+                f.write(json.dumps(config, indent=2))
+
+            ftp_processor.upload_file(f"{local_resources}/{jar_name}-{java_release_ver}.jar", f"{jar_name}-{java_release_ver}.jar", "jar")
+            ftp_processor.upload_file(f"{local_resources}/config.json", "config.json", "data/config")
+            os.remove(f"{local_resources}/config.json")
+        os.remove(f"{local_resources}/{jar_name}-{java_release_ver}.jar")
 
     def run_kcp(self):
         pass
