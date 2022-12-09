@@ -144,6 +144,34 @@ class ApexHandler(KCPHandler):
         r = requests.get(url, headers=self._default_headers, cookies=self._cookies)
         self._cookies.update(r.cookies)
 
+    def _save_changes(self, login_response, jar_name: str) -> dict[str, str]:
+        s = BeautifulSoup(login_response.text, "html.parser")
+        location_selected = s.find("option", attrs={"data-transfer-type": "location", "selected": True}).get("data-location")
+        server_name = s.find("input", attrs={"name": "Server[name]"}).get("value")
+        server_players = s.find("input", attrs={"name": "Server[players]"}).get("value")
+        server_domain = s.find("input", attrs={"name": "Server[domain]"}).get("value")
+        world_name = s.find("input", attrs={"id": "world-name"}).get("value")
+        kick_delay = s.find("input", attrs={"name": "Server[kick_delay]"}).get("value")
+        apply_jar: dict[str, str] = {
+            "YII_CSRF_TOKEN": self._csrf_token,
+            "goto_setup": "",
+            "confirm_leave": "true",
+            "location": f"location_{location_selected.replace(' ', '+')}",
+            "Server[name]": server_name.replace(' ', '+'),
+            "Server[players]": server_players.replace(' ', '+'),
+            "Server[domain]": server_domain.replace(' ', '+'),
+            "Server[world]": world_name.replace(' ', '+'),
+            "jar-select": "custom.jar",
+            "Server[jarfile]": jar_name,
+            "Server[kick_delay]": kick_delay.replace(' ', '+'),
+            "Server[autosave]": "0",
+            "Server[announce_save]": "0",
+            "ServerConfig[ip_auth_role]": "mod",
+            "cheat_role": "0",
+            "yt4": "Save"
+        }
+        return apply_jar
+
     def download_bin(self):
         # TODO this needs some cleanup :P
         dashboard = self._login()
@@ -235,10 +263,19 @@ class ApexHandler(KCPHandler):
             with open(f"{local_resources}/config.json", "w") as f:
                 f.write(json.dumps(config, indent=2))
 
-            ftp_processor.upload_file(f"{local_resources}/{jar_name}-{java_release_ver}.jar", f"{jar_name}-{java_release_ver}.jar", "jar")
+            ftp_processor.upload_file(
+                f"{local_resources}/{jar_name}-{java_release_ver}.jar",
+                f"{jar_name}-{java_release_ver}.jar",
+                "jar"
+            )
             ftp_processor.upload_file(f"{local_resources}/config.json", "config.json", "data/config")
             os.remove(f"{local_resources}/config.json")
         os.remove(f"{local_resources}/{jar_name}-{java_release_ver}.jar")
+
+        apply_changes: dict[str, str] = self._save_changes(dashboard, f"{jar_name}-{java_release_ver}.jar")
+        applied = requests.post(server_url, headers=self._default_headers, data=apply_changes, cookies=self._cookies)
+        if applied.status_code != 200:
+            raise Exception
 
     def run_kcp(self):
         pass
