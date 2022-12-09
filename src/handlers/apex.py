@@ -49,7 +49,7 @@ class ApexHandler(KCPHandler):
         self._panel_user: str = panel_user
         self._panel_passwd: str = panel_passwd
         self._url: str = "https://panel.apexminecrafthosting.com"
-        self._login_url: str = "https://panel.apexminecrafthosting.com/site/login"
+        self._login_url: str = f"{self._url}/site/login"
         if self.is_server():
             raise ServerModeNotValidException(f"Apex hosting can't be used as a server yet!")
 
@@ -80,6 +80,7 @@ class ApexHandler(KCPHandler):
             raise TokenNotFoundException(f"Unable to find a valid token")
         self._csrf_token = token_input.get("value")
         self._cookies = r.cookies.copy()
+        self._resolve_challenge(r)
         login_data: dict[str, str] = {
             "YII_CSRF_TOKEN": self._csrf_token,
             "LoginForm[name]": self._panel_user,
@@ -88,10 +89,32 @@ class ApexHandler(KCPHandler):
             "LoginForm[ignoreIp]": "1",
             "yt0": "Login"
         }
-        log = requests.post(self._login_url, headers=self._default_headers, data=login_data, cookies=self._cookies)
-        self._cookies.update(log.cookies)
         self._default_headers.update({"Sec-Fetch-Site": "same-origin"})
+        self._default_headers.update({"Content-Type": "application/x-www-form-urlencoded"})
+        self._default_headers.update({"Origin": "null"})
+        cookie_capture = requests.post(self._login_url, headers=self._default_headers, data=login_data, cookies=self._cookies, allow_redirects=False)
+        self._cookies.update(cookie_capture.cookies.copy())
+        log = requests.post(self._login_url, headers=self._default_headers, data=login_data, cookies=self._cookies)
+        self._default_headers.pop("Content-Type")
+        self._default_headers.pop("Origin")
+        self._cookies.update(log.cookies.copy())
         return log
+
+    def _resolve_challenge(self, login_panel):
+        s = BeautifulSoup(login_panel.text, "html.parser")
+        challenge_id = ""
+        for script in s.find_all("script"):
+            challenge_id_find = re.search(r"r:\'([a-zA-Z0-9]+)\'", script.text)
+            if not challenge_id_find:
+                continue
+            challenge_id = challenge_id_find.group(1)
+        if not challenge_id:
+            raise Exception
+        challenge = f"{self._url}/cdn-cgi/challenge-platform/h/b/cv/result/{challenge_id}"
+        r = requests.post(challenge, headers=self._default_headers, cookies=self._cookies)
+        if r.status_code != 200:
+            raise Exception
+        self._cookies.update(r.cookies.copy())
 
     @classmethod
     def _get_server_url(cls, login_response) -> str:
@@ -127,6 +150,7 @@ class ApexHandler(KCPHandler):
         server_url: str = f"{self._url}{self._get_server_url(dashboard)}"
         redirect_server_url: str = f"{self._url}{self._get_redirect_url(dashboard)}"
         self._do_redirect(redirect_server_url)
+        self._resolve_challenge(dashboard)
         server_id: str = server_url.split("/")[-1]
         self._default_headers.update({"Referer": f"{self._url}/server/{server_id}"})
         server_ip, server_port, ftp_port, ftp_user = self._get_ftp_creds(dashboard, server_id)
@@ -145,7 +169,7 @@ class ApexHandler(KCPHandler):
                 download_url = release.get("assets")[0].get("browser_download_url")
                 break
         if not download_url:
-            raise GithubDownloadException(f"Unable to get valid KCP assets {e}")
+            raise GithubDownloadException(f"Unable to get valid KCP assets")
 
         local_resources: str = "resources"
         jar_name: str = "apex_java"
