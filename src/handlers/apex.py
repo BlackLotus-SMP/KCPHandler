@@ -4,10 +4,12 @@ import os
 import re
 import socket
 import time
-from typing import Optional
+from re import Match
+from typing import Final, Optional, AnyStr
 
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
+from requests import Response
 from requests.cookies import RequestsCookieJar
 
 from src.config.kcp_config import KCPConfig, KCPClientConfig
@@ -42,9 +44,19 @@ class ServerModeNotValidException(Exception):
         super(ServerModeNotValidException, self).__init__(msg)
 
 
+class CloudflareChallengeException(Exception):
+    def __init__(self, msg: str):
+        super(CloudflareChallengeException, self).__init__(msg)
+
+
 class ApexHandler(KCPHandler):
     def __init__(self, bot_logger: BotLogger, svc_mode: ServiceMode, config: KCPConfig, panel_user: str, panel_passwd: str):
         super(ApexHandler, self).__init__(bot_logger, svc_mode, config)
+
+        self._RESOURCES_DIR: Final = "resources"
+        self._JAR_NAME: Final = "apex_java"
+        self._JAVA_VERSION: Final = "8"
+
         self._bot_logger: BotLogger = bot_logger
         self._kcp_file: Optional[str] = None
         self._config: KCPConfig = config
@@ -53,6 +65,7 @@ class ApexHandler(KCPHandler):
         self._url: str = "https://panel.apexminecrafthosting.com"
         self._login_url: str = f"{self._url}/site/login"
         self._server_id: Optional[str] = ""
+
         if self.is_server():
             raise ServerModeNotValidException(f"Apex hosting can't be used as a server yet!")
 
@@ -76,16 +89,16 @@ class ApexHandler(KCPHandler):
         self._server_ip: Optional[str] = ""
         self._server_port: Optional[str] = ""
 
-    def _login(self):
-        r = requests.get(self._login_url, headers=self._default_headers)
+    def _login(self) -> Response:
+        r: Response = requests.get(self._login_url, headers=self._default_headers)
         if r.status_code == 429:
             raise CloudflareException()
-        soup = BeautifulSoup(r.text, "html.parser")
-        token_input = soup.find("input", attrs={"type": "hidden", "name": "YII_CSRF_TOKEN"})
+        soup: BeautifulSoup = BeautifulSoup(r.text, "html.parser")
+        token_input: Tag = soup.find("input", attrs={"type": "hidden", "name": "YII_CSRF_TOKEN"})
         if not token_input:
             raise TokenNotFoundException(f"Unable to find a valid token")
-        self._csrf_token = token_input.get("value")
-        self._cookies = r.cookies.copy()
+        self._csrf_token: Optional[str] = token_input.get("value")
+        self._cookies: Optional[RequestsCookieJar] = r.cookies.copy()
         self._resolve_challenge(r)
         login_data: dict[str, str] = {
             "YII_CSRF_TOKEN": self._csrf_token,
@@ -98,66 +111,66 @@ class ApexHandler(KCPHandler):
         self._default_headers.update({"Sec-Fetch-Site": "same-origin"})
         self._default_headers.update({"Content-Type": "application/x-www-form-urlencoded"})
         self._default_headers.update({"Origin": "null"})
-        cookie_capture = requests.post(self._login_url, headers=self._default_headers, data=login_data, cookies=self._cookies, allow_redirects=False)
+        cookie_capture: Response = requests.post(self._login_url, headers=self._default_headers, data=login_data, cookies=self._cookies, allow_redirects=False)
         self._cookies.update(cookie_capture.cookies.copy())
-        log = requests.post(self._login_url, headers=self._default_headers, data=login_data, cookies=self._cookies)
+        log: Response = requests.post(self._login_url, headers=self._default_headers, data=login_data, cookies=self._cookies)
         self._default_headers.pop("Content-Type")
         self._default_headers.pop("Origin")
         self._cookies.update(log.cookies.copy())
         return log
 
     def _resolve_challenge(self, login_panel):
-        s = BeautifulSoup(login_panel.text, "html.parser")
-        challenge_id = ""
+        s: BeautifulSoup = BeautifulSoup(login_panel.text, "html.parser")
+        challenge_id: str = ""
         for script in s.find_all("script"):
-            challenge_id_find = re.search(r"r:\'([a-zA-Z0-9]+)\'", script.text)
+            challenge_id_find: Optional[Match[AnyStr]] = re.search(r"r:\'([a-zA-Z0-9]+)\'", script.text)
             if not challenge_id_find:
                 continue
-            challenge_id = challenge_id_find.group(1)
+            challenge_id: str = challenge_id_find.group(1)
         if not challenge_id:
-            raise Exception
-        challenge = f"{self._url}/cdn-cgi/challenge-platform/h/b/cv/result/{challenge_id}"
-        r = requests.post(challenge, headers=self._default_headers, cookies=self._cookies)
+            raise CloudflareChallengeException("Challenge ID not found!")
+        challenge: str = f"{self._url}/cdn-cgi/challenge-platform/h/b/cv/result/{challenge_id}"
+        r: Response = requests.post(challenge, headers=self._default_headers, cookies=self._cookies)
         if r.status_code != 200:
-            raise Exception
+            raise CloudflareChallengeException("Unable to retrieve cookies from challenge!")
         self._cookies.update(r.cookies.copy())
 
     @classmethod
     def _get_server_url(cls, login_response) -> str:
-        uri = re.search(r"/server/\d+", login_response.text)
+        uri: Optional[Match[AnyStr]] = re.search(r"/server/\d+", login_response.text)
         if not uri:
             raise ServerUrlNotFoundException("Unable to find a valid server url!")
         return uri.group(0)
 
     @classmethod
     def _get_redirect_url(cls, login_response) -> str:
-        uri = re.search(r"/server/index/\d+", login_response.text)
+        uri: Optional[Match[AnyStr]] = re.search(r"/server/index/\d+", login_response.text)
         if not uri:
             raise ServerUrlNotFoundException("Unable to find a valid server url!")
         return uri.group(0)
 
-    def _get_ftp_creds(self, login_response):
-        ip_finder = re.search(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,5}", login_response.text)
+    def _get_ftp_creds(self, login_response) -> (str, str, str, str):
+        ip_finder: Optional[Match[AnyStr]] = re.search(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,5}", login_response.text)
         if not ip_finder:
             raise IPNotFoundException("")
-        server_ip = ip_finder.group(0).split(":")[0]
-        server_port = ip_finder.group(0).split(":")[1]
-        ftp_port = "21"
-        ftp_user = f"{self._panel_user.title()}.{self._server_id}"
+        server_ip: str = ip_finder.group(0).split(":")[0]
+        server_port: str = ip_finder.group(0).split(":")[1]
+        ftp_port: str = "21"
+        ftp_user: str = f"{self._panel_user.title()}.{self._server_id}"
         return server_ip, server_port, ftp_port, ftp_user
 
     def _do_redirect(self, url: str):
-        r = requests.get(url, headers=self._default_headers, cookies=self._cookies)
+        r: Response = requests.get(url, headers=self._default_headers, cookies=self._cookies)
         self._cookies.update(r.cookies)
 
     def _save_changes(self, login_response, jar_name: str) -> dict[str, str]:
-        s = BeautifulSoup(login_response.text, "html.parser")
-        location_selected = s.find("option", attrs={"data-transfer-type": "location", "selected": True}).get("data-location")
-        server_name = s.find("input", attrs={"name": "Server[name]"}).get("value")
-        server_players = s.find("input", attrs={"name": "Server[players]"}).get("value")
-        server_domain = s.find("input", attrs={"name": "Server[domain]"}).get("value")
-        world_name = s.find("input", attrs={"id": "world-name"}).get("value")
-        kick_delay = s.find("input", attrs={"name": "Server[kick_delay]"}).get("value")
+        s: BeautifulSoup = BeautifulSoup(login_response.text, "html.parser")
+        location_selected: str = s.find("option", attrs={"data-transfer-type": "location", "selected": True}).get("data-location")
+        server_name: str = s.find("input", attrs={"name": "Server[name]"}).get("value")
+        server_players: str = s.find("input", attrs={"name": "Server[players]"}).get("value")
+        server_domain: str = s.find("input", attrs={"name": "Server[domain]"}).get("value")
+        world_name: str = s.find("input", attrs={"id": "world-name"}).get("value")
+        kick_delay: str = s.find("input", attrs={"name": "Server[kick_delay]"}).get("value")
         apply_jar: dict[str, str] = {
             "YII_CSRF_TOKEN": self._csrf_token,
             "goto_setup": "",
@@ -178,48 +191,7 @@ class ApexHandler(KCPHandler):
         }
         return apply_jar
 
-    def download_bin(self):
-        # TODO this needs some cleanup :P
-        dashboard = self._login()
-        server_url: str = f"{self._url}{self._get_server_url(dashboard)}"
-        redirect_server_url: str = f"{self._url}{self._get_redirect_url(dashboard)}"
-        self._do_redirect(redirect_server_url)
-        self._resolve_challenge(dashboard)
-        self._server_id: str = server_url.split("/")[-1]
-        self._default_headers.update({"Referer": f"{self._url}/server/{self._server_id}"})
-        server_ip, server_port, ftp_port, ftp_user = self._get_ftp_creds(dashboard)
-        self._server_ip: str = server_ip
-        self._server_port: str = server_port
-        url = "https://api.github.com/repos/BlackLotus-SMP/GOKCPJavaDeploy/releases"
-        java_release_ver = "8"
-        try:
-            r = requests.get(url)
-        except Exception as e:
-            self._bot_logger.error(f"Unable to get valid KCP assets {e}")
-            raise GithubDownloadException(f"Unable to get valid KCP assets {e}")
-        if r.status_code != 200:
-            raise GithubDownloadException(f"Unable to get a valid release, got status code {r.status_code}!")
-        download_url = ""
-        for release in r.json():
-            if release.get("name") == f"java-{java_release_ver}":
-                download_url = release.get("assets")[0].get("browser_download_url")
-                break
-        if not download_url:
-            raise GithubDownloadException(f"Unable to get valid KCP assets")
-
-        local_resources: str = "resources"
-        jar_name: str = "apex_java"
-        if not os.path.isdir(local_resources):
-            os.mkdir(local_resources)
-        if os.path.isfile(f"{local_resources}/{jar_name}-{java_release_ver}.jar"):
-            os.remove(f"{local_resources}/{jar_name}-{java_release_ver}.jar")
-
-        kcp_jar = requests.get(download_url, stream=True)
-        with open(f"{local_resources}/{jar_name}-{java_release_ver}.jar", "wb") as f:
-            for chunk in kcp_jar.iter_content(chunk_size=2048):
-                if chunk:
-                    f.write(chunk)
-
+    def _ftp_upload(self, server_ip: str, ftp_user: str):
         with ftplib.FTP(host=server_ip, user=ftp_user, passwd=self._panel_passwd) as ftp:
             ftp_processor: FTPProcessor = FTPProcessor(ftp)
 
@@ -256,10 +228,10 @@ class ApexHandler(KCPHandler):
             jar_files: list[FTPFile] = ftp_processor.list_files("jar")
             jar_found: bool = False
             for f in jar_files:
-                if not f.is_dir() and f.get_name() == f"{jar_name}-{java_release_ver}.jar":
+                if not f.is_dir() and f.get_name() == f"{self._JAR_NAME}-{self._JAVA_VERSION}.jar":
                     jar_found: bool = True
             if jar_found:
-                ftp_processor.delete_file(f"jar/{jar_name}-{java_release_ver}.jar")
+                ftp_processor.delete_file(f"jar/{self._JAR_NAME}-{self._JAVA_VERSION}.jar")
 
             config: dict[str, str] = {
                 "remoteaddr": self._config.remote,
@@ -268,17 +240,57 @@ class ApexHandler(KCPHandler):
                 "crypt": self._config.crypt,
                 "key": self._config.key
             }
-            with open(f"{local_resources}/config.json", "w") as f:
+            with open(f"{self._RESOURCES_DIR}/config.json", "w") as f:
                 f.write(json.dumps(config, indent=2))
 
             ftp_processor.upload_file(
-                f"{local_resources}/{jar_name}-{java_release_ver}.jar",
-                f"{jar_name}-{java_release_ver}.jar",
+                f"{self._RESOURCES_DIR}/{self._JAR_NAME}-{self._JAVA_VERSION}.jar",
+                f"{self._JAR_NAME}-{self._JAVA_VERSION}.jar",
                 "jar"
             )
-            ftp_processor.upload_file(f"{local_resources}/config.json", "config.json", "data/config")
-            os.remove(f"{local_resources}/config.json")
-        os.remove(f"{local_resources}/{jar_name}-{java_release_ver}.jar")
+            ftp_processor.upload_file(f"{self._RESOURCES_DIR}/config.json", "config.json", "data/config")
+            os.remove(f"{self._RESOURCES_DIR}/config.json")
+        os.remove(f"{self._RESOURCES_DIR}/{self._JAR_NAME}-{self._JAVA_VERSION}.jar")
+
+    def download_bin(self):
+        dashboard = self._login()
+        server_url: str = f"{self._url}{self._get_server_url(dashboard)}"
+        redirect_server_url: str = f"{self._url}{self._get_redirect_url(dashboard)}"
+        self._do_redirect(redirect_server_url)
+        self._resolve_challenge(dashboard)
+        self._server_id: str = server_url.split("/")[-1]
+        self._default_headers.update({"Referer": f"{self._url}/server/{self._server_id}"})
+        server_ip, server_port, ftp_port, ftp_user = self._get_ftp_creds(dashboard)
+        self._server_ip: str = server_ip
+        self._server_port: str = server_port
+        url = "https://api.github.com/repos/BlackLotus-SMP/GOKCPJavaDeploy/releases"
+        try:
+            r = requests.get(url)
+        except Exception as e:
+            self._bot_logger.error(f"Unable to get valid KCP assets {e}")
+            raise GithubDownloadException(f"Unable to get valid KCP assets {e}")
+        if r.status_code != 200:
+            raise GithubDownloadException(f"Unable to get a valid release, got status code {r.status_code}!")
+        download_url = ""
+        for release in r.json():
+            if release.get("name") == f"java-{self._JAVA_VERSION}":
+                download_url = release.get("assets")[0].get("browser_download_url")
+                break
+        if not download_url:
+            raise GithubDownloadException(f"Unable to get valid KCP assets")
+
+        if not os.path.isdir(self._RESOURCES_DIR):
+            os.mkdir(self._RESOURCES_DIR)
+        if os.path.isfile(f"{self._RESOURCES_DIR}/{self._JAR_NAME}-{self._JAVA_VERSION}.jar"):
+            os.remove(f"{self._RESOURCES_DIR}/{self._JAR_NAME}-{self._JAVA_VERSION}.jar")
+
+        kcp_jar: Response = requests.get(download_url, stream=True)
+        with open(f"{self._RESOURCES_DIR}/{self._JAR_NAME}-{self._JAVA_VERSION}.jar", "wb") as f:
+            for chunk in kcp_jar.iter_content(chunk_size=2048):
+                if chunk:
+                    f.write(chunk)
+
+        self._ftp_upload(server_ip, ftp_user)
 
         self._default_headers.update({"Sec-Fetch-Dest": "empty"})
         self._default_headers.update({"Sec-Fetch-Mode": "cors"})
@@ -286,7 +298,7 @@ class ApexHandler(KCPHandler):
         self._default_headers.update({"Origin": self._url})
         self._default_headers.update({"Alt-Used": self._url})
         self._default_headers.update({"Accept": "*/*"})
-        apply_changes: dict[str, str] = self._save_changes(dashboard, f"{jar_name}-{java_release_ver}.jar")
+        apply_changes: dict[str, str] = self._save_changes(dashboard, f"{self._JAR_NAME}-{self._JAVA_VERSION}.jar")
         applied = requests.post(server_url, headers=self._default_headers, data=apply_changes, cookies=self._cookies)
         if applied.status_code != 200:
             raise Exception
@@ -301,6 +313,8 @@ class ApexHandler(KCPHandler):
         timeout: int = 10
         while True:
             if timeout < 0:
+                # 5 minutes wait until process crashes and restarts!
+                time.sleep(60 * 5)
                 raise Exception
             try:
                 time.sleep(20)
@@ -312,4 +326,4 @@ class ApexHandler(KCPHandler):
                 timeout -= 1
             else:
                 s.close()
-                timeout = 10
+                timeout: int = 10
