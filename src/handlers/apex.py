@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup, Tag
 from requests import Response
 from requests.cookies import RequestsCookieJar
 
-from src.config.kcp_config import KCPConfig, KCPClientConfig
+from src.config.kcp_config import KCPConfig
 from src.handlers.kcp_interface import KCPHandler, GithubDownloadException
 from src.helpers.ftp import FTPProcessor, FTPFile
 from src.logger.bot_logger import BotLogger
@@ -47,6 +47,16 @@ class ServerModeNotValidException(Exception):
 class CloudflareChallengeException(Exception):
     def __init__(self, msg: str):
         super(CloudflareChallengeException, self).__init__(msg)
+
+
+class ApexSaveChangesException(Exception):
+    def __init__(self, msg: str):
+        super(ApexSaveChangesException, self).__init__(msg)
+
+
+class ApexTimeoutException(Exception):
+    def __init__(self, msg: str):
+        super(ApexTimeoutException, self).__init__(msg)
 
 
 class ApexHandler(KCPHandler):
@@ -301,7 +311,7 @@ class ApexHandler(KCPHandler):
         apply_changes: dict[str, str] = self._save_changes(dashboard, f"{self._JAR_NAME}-{self._JAVA_VERSION}.jar")
         applied = requests.post(server_url, headers=self._default_headers, data=apply_changes, cookies=self._cookies)
         if applied.status_code != 200:
-            raise Exception
+            raise ApexSaveChangesException("Unable to save changes for new config!")
 
     def run_kcp(self):
         url: str = f"{self._url}/server/{self._server_id}"
@@ -315,7 +325,7 @@ class ApexHandler(KCPHandler):
             if timeout < 0:
                 # 5 minutes wait until process crashes and restarts!
                 time.sleep(60 * 5)
-                raise Exception
+                raise ApexTimeoutException("KCP Node timed out 10 times! crashing...")
             try:
                 time.sleep(20)
                 socket.setdefaulttimeout(30)
