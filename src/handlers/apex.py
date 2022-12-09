@@ -2,6 +2,8 @@ import ftplib
 import json
 import os
 import re
+import socket
+import time
 from typing import Optional
 
 import requests
@@ -50,6 +52,7 @@ class ApexHandler(KCPHandler):
         self._panel_passwd: str = panel_passwd
         self._url: str = "https://panel.apexminecrafthosting.com"
         self._login_url: str = f"{self._url}/site/login"
+        self._server_id: Optional[str] = ""
         if self.is_server():
             raise ServerModeNotValidException(f"Apex hosting can't be used as a server yet!")
 
@@ -69,6 +72,9 @@ class ApexHandler(KCPHandler):
         }
         self._cookies: Optional[RequestsCookieJar] = None
         self._csrf_token: Optional[str] = None
+
+        self._server_ip: Optional[str] = ""
+        self._server_port: Optional[str] = ""
 
     def _login(self):
         r = requests.get(self._login_url, headers=self._default_headers)
@@ -130,14 +136,14 @@ class ApexHandler(KCPHandler):
             raise ServerUrlNotFoundException("Unable to find a valid server url!")
         return uri.group(0)
 
-    def _get_ftp_creds(self, login_response, server_id: str):
+    def _get_ftp_creds(self, login_response):
         ip_finder = re.search(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,5}", login_response.text)
         if not ip_finder:
             raise IPNotFoundException("")
         server_ip = ip_finder.group(0).split(":")[0]
         server_port = ip_finder.group(0).split(":")[1]
         ftp_port = "21"
-        ftp_user = f"{self._panel_user.title()}.{server_id}"
+        ftp_user = f"{self._panel_user.title()}.{self._server_id}"
         return server_ip, server_port, ftp_port, ftp_user
 
     def _do_redirect(self, url: str):
@@ -179,11 +185,13 @@ class ApexHandler(KCPHandler):
         redirect_server_url: str = f"{self._url}{self._get_redirect_url(dashboard)}"
         self._do_redirect(redirect_server_url)
         self._resolve_challenge(dashboard)
-        server_id: str = server_url.split("/")[-1]
-        self._default_headers.update({"Referer": f"{self._url}/server/{server_id}"})
-        server_ip, server_port, ftp_port, ftp_user = self._get_ftp_creds(dashboard, server_id)
+        self._server_id: str = server_url.split("/")[-1]
+        self._default_headers.update({"Referer": f"{self._url}/server/{self._server_id}"})
+        server_ip, server_port, ftp_port, ftp_user = self._get_ftp_creds(dashboard)
+        self._server_ip: str = server_ip
+        self._server_port: str = server_port
         url = "https://api.github.com/repos/BlackLotus-SMP/GOKCPJavaDeploy/releases"
-        java_release_ver = "17"
+        java_release_ver = "8"
         try:
             r = requests.get(url)
         except Exception as e:
@@ -272,10 +280,36 @@ class ApexHandler(KCPHandler):
             os.remove(f"{local_resources}/config.json")
         os.remove(f"{local_resources}/{jar_name}-{java_release_ver}.jar")
 
+        self._default_headers.update({"Sec-Fetch-Dest": "empty"})
+        self._default_headers.update({"Sec-Fetch-Mode": "cors"})
+        self._default_headers.update({"X-Requested-With": "XMLHttpRequest"})
+        self._default_headers.update({"Origin": self._url})
+        self._default_headers.update({"Alt-Used": self._url})
+        self._default_headers.update({"Accept": "*/*"})
         apply_changes: dict[str, str] = self._save_changes(dashboard, f"{jar_name}-{java_release_ver}.jar")
         applied = requests.post(server_url, headers=self._default_headers, data=apply_changes, cookies=self._cookies)
         if applied.status_code != 200:
             raise Exception
 
     def run_kcp(self):
-        pass
+        url: str = f"{self._url}/server/{self._server_id}"
+        restart_data: dict[str, str] = {
+            "ajax": "restart",
+            "YII_CSRF_TOKEN": self._csrf_token
+        }
+        _ = requests.post(url, headers=self._default_headers, cookies=self._cookies, data=restart_data)
+        timeout: int = 10
+        while True:
+            if timeout < 0:
+                raise Exception
+            try:
+                time.sleep(20)
+                socket.setdefaulttimeout(30)
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.connect((self._server_ip, int(self._server_port)))
+            except Exception as e:
+                _ = e
+                timeout -= 1
+            else:
+                s.close()
+                timeout = 10
