@@ -7,6 +7,7 @@
 - [ ] add Apex Server support
 - [ ] add yaml config file
 - [ ] argument for config file
+- [ ] better ftp port detection
 - [ ] ssh handler
 - [ ] config class for handlers
 - [ ] system detect random errors like port binding
