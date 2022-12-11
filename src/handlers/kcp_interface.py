@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from src.config.kcp_config import KCPConfig
 from src.logger.bot_logger import BotLogger
