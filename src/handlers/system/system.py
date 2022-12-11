@@ -99,10 +99,10 @@ class SystemHandler(KCPHandler):
             raise InvalidSystemException(f"Couldn't find a valid version for this os and arch, information found: os={os_.value}, arch={arch.value}, information retrieved: os={platform.uname().system}, arch={platform.uname().machine}, please report!")
         self._bot_logger.info("Found a valid release!")
         self._bot_logger.info(f"Downloading {download_url}...")
-        if os.path.isdir("../resources"):
-            shutil.rmtree("../resources")
-        if not os.path.isdir("../resources"):
-            os.mkdir("../resources")
+        if os.path.isdir("resources"):
+            shutil.rmtree("resources")
+        if not os.path.isdir("resources"):
+            os.mkdir("resources")
         kcp_compressed = requests.get(download_url, stream=True)
         with open("resources/compressed.tar.gz", "wb") as f:
             for chunk in kcp_compressed.iter_content(chunk_size=2048):
@@ -110,11 +110,11 @@ class SystemHandler(KCPHandler):
                     f.write(chunk)
         self._bot_logger.info(f"File downloaded")
         file: tarfile.TarFile = tarfile.open("resources/compressed.tar.gz")
-        file.extractall(path="../resources")
+        file.extractall(path="resources")
         file.close()
         os.remove("resources/compressed.tar.gz")
         self._bot_logger.info(f"Extracting a valid binary")
-        files: list[str] = os.listdir("../resources")
+        files: list[str] = os.listdir("resources")
         expected_binary_format: str = "client" if self.is_client() else "server"
         expected_binary_format += f"_{os_.value}_{arch.value}"
         for bin_file in files:
