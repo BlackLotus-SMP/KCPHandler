@@ -5,15 +5,45 @@ import tarfile
 from typing import Optional
 
 import requests
+from paramiko.channel import Channel
 from paramiko.client import SSHClient, AutoAddPolicy
 from paramiko.sftp_client import SFTPClient
 
 from src.config.kcp_config import KCPConfig
 from src.constant import KCPTUN_URL
 from src.handlers.kcp_interface import KCPHandler, InvalidSystemException, GithubDownloadException
+from src.handlers.process_interface import KCPProcess
 from src.helpers.detector import Detector, Arch, OS
 from src.logger.bot_logger import BotLogger
 from src.service.mode import ServiceMode
+
+
+class KCPSSHProcess(KCPProcess):
+    def __init__(self, bot_logger: BotLogger, is_client: bool, config: KCPConfig, ssh_client: SSHClient):
+        super().__init__(bot_logger, is_client, config)
+        self._ssh_client: SSHClient = ssh_client
+
+    def start(self, kcp_path: str):
+        if self._is_client:
+            kcp_command: str = f"./{kcp_path} -r {self._config.remote} -l {self._config.listen} -mode {self._config.mode} --crypt {self._config.crypt} --key {self._config.key}"
+        else:
+            kcp_command: str = f"./{kcp_path} -t {self._config.remote} -l {self._config.listen} -mode {self._config.mode} --crypt {self._config.crypt} --key {self._config.key}"
+
+        chan: Channel = self._ssh_client.invoke_shell()
+        chan.send(bytes(kcp_command + "\n", "utf-8"))
+        buffer: str = ""
+        is_running: bool = True
+        while is_running:
+            buffer += chan.recv(2048).decode("utf-8")
+            lines: list[str] = buffer.split("\r\n")
+            if len(lines) > 1:
+                buffer: str = lines[-1]
+                for line in lines[:-1]:
+                    self._bot_logger.info(line)
+                    if line.lower() == "terminated":
+                        is_running = False
+        chan.close()
+        self._ssh_client.close()
 
 
 class SSHHandler(KCPHandler):
@@ -34,11 +64,11 @@ class SSHHandler(KCPHandler):
     def _simple_command(self, command: str) -> str:
         stdin, stdout, stderr = self._ssh_client.exec_command(command)
         stdin.close()
-        stderr.close()
         output: str = ""
         for line in iter(lambda: stdout.readline(2048), ""):
             output += line
         stdout.close()
+        stderr.close()
         return output
 
     def download_bin(self):
@@ -100,13 +130,18 @@ class SSHHandler(KCPHandler):
         if not kcp_file:
             raise InvalidSystemException(f"Couldn't find a valid executable! information found: os={os_.value}, arch={arch.value}, report with your 'uname -s' and 'uname -m', files found: {', '.join(files)}!")
         _ = self._simple_command("mkdir -p auto_kcp")
+        _ = self._simple_command("rm -rf auto_kcp/client*")
+        _ = self._simple_command("rm -rf auto_kcp/server*")
         self._bot_logger.info("Uploading bin file to the server")
         self._bin_remote_path: str = f"auto_kcp/{bin_name}"
         ftp: SFTPClient = self._ssh_client.open_sftp()
         ftp.put(localpath=kcp_file, remotepath=self._bin_remote_path)
         ftp.close()
         shutil.rmtree(resources_dir)
+        self._bot_logger.info("+x perms to the bin file")
         _ = self._simple_command(f"chmod +x {self._bin_remote_path}")
+        self._bot_logger.info(f"{self._bin_remote_path} ready!")
 
     def run_kcp(self):
-        pass
+        kcp_process: KCPSSHProcess = KCPSSHProcess(self._bot_logger, self.is_client(), self._config, self._ssh_client)
+        kcp_process.start(self._bin_remote_path)
