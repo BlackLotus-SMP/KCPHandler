@@ -1,10 +1,14 @@
+import os
 import re
+import shutil
 import socket
+import tarfile
 from typing import Optional
 
 import requests
 from paramiko.channel import ChannelFile
 from paramiko.client import SSHClient, AutoAddPolicy
+from paramiko.sftp_client import SFTPClient
 
 from src.config.kcp_config import KCPConfig
 from src.handlers.kcp_interface import KCPHandler, InvalidSystemException, GithubDownloadException
@@ -26,6 +30,7 @@ class SSHHandler(KCPHandler):
         self._ssh_host: str = ssh_host
 
         self._ssh_client: Optional[SSHClient] = None
+        self._bin_remote_path: Optional[str] = None
 
     def _simple_command(self, command: str) -> str:
         stdin, stdout, stderr = self._ssh_client.exec_command(command)
@@ -67,6 +72,42 @@ class SSHHandler(KCPHandler):
             raise InvalidSystemException(f"Couldn't find a valid version for this os and arch, information found: os={os_.value}, arch={arch.value}, report with your 'uname -s' and 'uname -m'")
         self._bot_logger.info("Found a valid release!")
         self._bot_logger.info(f"Downloading {download_url}...")
+        resources_dir: str = self.get_unique_name()
+        if os.path.isdir(resources_dir):
+            shutil.rmtree(resources_dir)
+        if not os.path.isdir(resources_dir):
+            os.mkdir(resources_dir)
+        kcp_compressed = requests.get(download_url, stream=True)
+        with open(f"{resources_dir}/compressed.tar.gz", "wb") as f:
+            for chunk in kcp_compressed.iter_content(chunk_size=2048):
+                if chunk:
+                    f.write(chunk)
+        self._bot_logger.info(f"File downloaded")
+        file: tarfile.TarFile = tarfile.open(f"{resources_dir}/compressed.tar.gz")
+        file.extractall(path=resources_dir)
+        file.close()
+        os.remove(f"{resources_dir}/compressed.tar.gz")
+        self._bot_logger.info(f"Extracting a valid binary")
+        files: list[str] = os.listdir(resources_dir)
+        expected_binary_format: str = "client" if self.is_client() else "server"
+        expected_binary_format += f"_{os_.value}_{arch.value}"
+        kcp_file: str = ""
+        for bin_file in files:
+            if bin_file.startswith(expected_binary_format):
+                kcp_file = f"{resources_dir}/{bin_file}"
+            else:
+                os.remove(f"{resources_dir}/{bin_file}")
+        bin_name: str = kcp_file.split('/')[-1]
+        if not kcp_file:
+            raise InvalidSystemException(f"Couldn't find a valid executable! information found: os={os_.value}, arch={arch.value}, report with your 'uname -s' and 'uname -m', files found: {', '.join(files)}!")
+        _ = self._simple_command("mkdir -p auto_kcp")
+        self._bot_logger.info("Uploading bin file to the server")
+        self._bin_remote_path: str = f"auto_kcp/{bin_name}"
+        ftp: SFTPClient = self._ssh_client.open_sftp()
+        ftp.put(localpath=kcp_file, remotepath=self._bin_remote_path)
+        ftp.close()
+        shutil.rmtree(resources_dir)
+        _ = self._simple_command(f"chmod +x {self._bin_remote_path}")
 
     def run_kcp(self):
         pass
