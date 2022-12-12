@@ -15,3 +15,4 @@
 - [ ] dockerfile
 - [ ] SSH login with file
 - [ ] unique resources names with cleanup
+- [ ] add status to apex handler
