@@ -1,16 +1,15 @@
 import os
 import re
 import shutil
-import socket
 import tarfile
 from typing import Optional
 
 import requests
-from paramiko.channel import ChannelFile
 from paramiko.client import SSHClient, AutoAddPolicy
 from paramiko.sftp_client import SFTPClient
 
 from src.config.kcp_config import KCPConfig
+from src.constant import KCPTUN_URL
 from src.handlers.kcp_interface import KCPHandler, InvalidSystemException, GithubDownloadException
 from src.helpers.detector import Detector, Arch, OS
 from src.logger.bot_logger import BotLogger
@@ -53,7 +52,7 @@ class SSHHandler(KCPHandler):
             raise InvalidSystemException(f"Unable to find a valid os or arch, information found: os={os_.value}, arch={arch.value}, report with your 'uname -s' and 'uname -m'")
         self._bot_logger.info(f"Found {os_.value} with {arch.value}")
         try:
-            r = requests.get("https://api.github.com/repos/xtaci/kcptun/releases/latest")
+            r = requests.get(KCPTUN_URL)
         except Exception as e:
             self._bot_logger.error(f"Unable to get valid KCP assets {e}")
             raise GithubDownloadException(f"Unable to get valid KCP assets {e}")

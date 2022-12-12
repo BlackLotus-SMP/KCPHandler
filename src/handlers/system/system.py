@@ -9,6 +9,7 @@ from typing import Optional
 import requests
 
 from src.config.kcp_config import KCPConfig
+from src.constant import KCPTUN_URL
 from src.handlers.kcp_interface import KCPHandler, GithubDownloadException, InvalidSystemException
 from src.handlers.status import KCPStatus
 from src.helpers.detector import Detector, Arch, OS
@@ -75,7 +76,7 @@ class SystemHandler(KCPHandler):
             raise InvalidSystemException(f"Unable to find a valid os or arch, information found: os={os_.value}, arch={arch.value}, information retrieved: os={platform.uname().system}, arch={platform.uname().machine}")
         self._bot_logger.info(f"Found {os_.value} with {arch.value}")
         try:
-            r = requests.get("https://api.github.com/repos/xtaci/kcptun/releases/latest")
+            r = requests.get(KCPTUN_URL)
         except Exception as e:
             self._bot_logger.error(f"Unable to get valid KCP assets {e}")
             raise GithubDownloadException(f"Unable to get valid KCP assets {e}")
