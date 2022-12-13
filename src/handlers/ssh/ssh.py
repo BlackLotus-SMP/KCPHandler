@@ -39,7 +39,7 @@ class KCPSSHProcess(KCPProcess):
             if len(lines) > 1:
                 buffer: str = lines[-1]
                 for line in lines[:-1]:
-                    self._bot_logger.info(line)
+                    # self._bot_logger.info(line)
                     if line.lower() == "terminated":
                         is_running = False
         chan.close()
