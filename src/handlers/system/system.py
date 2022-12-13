@@ -9,16 +9,13 @@ from typing import Optional
 import requests
 
 from src.config.kcp_config import KCPConfig
-from src.handlers.kcp_interface import KCPHandler, GithubDownloadException
+from src.constant import KCPTUN_URL
+from src.handlers.kcp_interface import KCPHandler, GithubDownloadException, InvalidSystemException
+from src.handlers.process_interface import KCPProcess
 from src.handlers.status import KCPStatus
 from src.helpers.detector import Detector, Arch, OS
 from src.logger.bot_logger import BotLogger
 from src.service.mode import ServiceMode
-
-
-class InvalidSystemException(Exception):
-    def __init__(self, msg: str):
-        super(InvalidSystemException, self).__init__(msg)
 
 
 class SystemProcessException(Exception):
@@ -26,13 +23,10 @@ class SystemProcessException(Exception):
         super(SystemProcessException, self).__init__()
 
 
-class KCPSystemProcess:
-    def __init__(self, bot_logger: BotLogger, kcp_handler: KCPHandler, config: KCPConfig):
-        self._bot_logger: BotLogger = bot_logger
+class KCPSystemProcess(KCPProcess):
+    def __init__(self, bot_logger: BotLogger, is_client: bool, config: KCPConfig):
+        super().__init__(bot_logger, is_client, config)
         self._process: Optional[PIPE] = None
-        self._process_status: KCPStatus = KCPStatus.STARTING
-        self._kcp_handler: KCPHandler = kcp_handler
-        self._config: KCPConfig = config
 
     def start(self, kcp_path: str):
         self._start_kcp_process(kcp_path)
@@ -47,7 +41,7 @@ class KCPSystemProcess:
             self._bot_logger.error(e)
 
     def _start_kcp_process(self, kcp_path: str):
-        if self._kcp_handler.is_client():
+        if self._is_client:
             kcp_command: str = f"{kcp_path} -r {self._config.remote} -l {self._config.listen} -mode {self._config.mode} --crypt {self._config.crypt} --key {self._config.key}"
         else:
             kcp_command: str = f"{kcp_path} -t {self._config.remote} -l {self._config.listen} -mode {self._config.mode} --crypt {self._config.crypt} --key {self._config.key}"
@@ -61,6 +55,7 @@ class KCPSystemProcess:
             except StopIteration:
                 raise SystemProcessException
             else:
+                _ = text
                 pass
                 # self._bot_logger.info(text.decode("utf8")[:-1])
 
@@ -80,7 +75,7 @@ class SystemHandler(KCPHandler):
             raise InvalidSystemException(f"Unable to find a valid os or arch, information found: os={os_.value}, arch={arch.value}, information retrieved: os={platform.uname().system}, arch={platform.uname().machine}")
         self._bot_logger.info(f"Found {os_.value} with {arch.value}")
         try:
-            r = requests.get("https://api.github.com/repos/xtaci/kcptun/releases/latest")
+            r = requests.get(KCPTUN_URL)
         except Exception as e:
             self._bot_logger.error(f"Unable to get valid KCP assets {e}")
             raise GithubDownloadException(f"Unable to get valid KCP assets {e}")
@@ -127,5 +122,5 @@ class SystemHandler(KCPHandler):
         self._bot_logger.info(f"Found a valid binary! {self._kcp_file} ready!")
 
     def run_kcp(self):
-        kcp_process: KCPSystemProcess = KCPSystemProcess(self._bot_logger, self, self._config)
+        kcp_process: KCPSystemProcess = KCPSystemProcess(self._bot_logger, self.is_client(), self._config)
         kcp_process.start(self._kcp_file)

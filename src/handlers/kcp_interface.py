@@ -10,6 +10,11 @@ class GithubDownloadException(Exception):
         super(GithubDownloadException, self).__init__(msg)
 
 
+class InvalidSystemException(Exception):
+    def __init__(self, msg: str):
+        super(InvalidSystemException, self).__init__(msg)
+
+
 class KCPHandler:
     def __init__(self, bot_logger: BotLogger, svc_mode: ServiceMode, config: KCPConfig):
         self._bot_logger: BotLogger = bot_logger

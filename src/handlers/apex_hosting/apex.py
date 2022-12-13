@@ -2,6 +2,7 @@ import ftplib
 import json
 import os
 import re
+import shutil
 import socket
 import time
 from re import Match
@@ -13,6 +14,7 @@ from requests import Response
 from requests.cookies import RequestsCookieJar
 
 from src.config.kcp_config import KCPConfig
+from src.constant import KCPTUN_URL
 from src.handlers.kcp_interface import KCPHandler, GithubDownloadException
 from src.helpers.ftp import FTPProcessor, FTPFile
 from src.logger.bot_logger import BotLogger
@@ -63,7 +65,7 @@ class ApexHandler(KCPHandler):
     def __init__(self, bot_logger: BotLogger, svc_mode: ServiceMode, config: KCPConfig, panel_user: str, panel_passwd: str):
         super(ApexHandler, self).__init__(bot_logger, svc_mode, config)
 
-        self._RESOURCES_DIR: Final = "resources"
+        self._RESOURCES_DIR: Final = self.get_unique_name()
         self._JAR_NAME: Final = "apex_java"
         self._JAVA_VERSION: Final = "8"
 
@@ -289,9 +291,8 @@ class ApexHandler(KCPHandler):
         self._server_ip: str = server_ip
         self._server_port: str = server_port
         self._bot_logger.info(f"Downloading a valid jar with GO KCP binary for java {self._JAVA_VERSION}")
-        url = "https://api.github.com/repos/BlackLotus-SMP/GOKCPJavaDeploy/releases"
         try:
-            r = requests.get(url)
+            r = requests.get(KCPTUN_URL)
         except Exception as e:
             self._bot_logger.error(f"Unable to get valid KCP assets {e}")
             raise GithubDownloadException(f"Unable to get valid KCP assets {e}")
@@ -331,6 +332,8 @@ class ApexHandler(KCPHandler):
         if applied.status_code != 200:
             raise ApexSaveChangesException("Unable to save changes for new config!")
         self._bot_logger.info("Setup done, ready to run! :)")
+        if os.path.isdir(self._RESOURCES_DIR):
+            shutil.rmtree(self._RESOURCES_DIR)
 
     def run_kcp(self):
         self._bot_logger.info("Sending restart signal!")
