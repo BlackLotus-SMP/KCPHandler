@@ -1,0 +1,17 @@
+server:
+  handler: system
+  kcp:
+    target: 1.2.2.2:25565
+    listen: :25566
+    password: test123
+clients:
+  - handler: ssh
+    kcp:
+      remote: 1.2.3.4:25566
+      listen: :25566
+      password: test123
+  - handler: apex
+    kcp:
+      remote: 1.2.3.4:25566
+      listen: :25566
+      password: test123
