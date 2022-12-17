@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from src.config.kcp_config import KCPConfig
+from src.handlers.handler_config_interface import HandlerConfig
 from src.logger.bot_logger import BotLogger
 from src.service.mode import ServiceMode
 
@@ -16,10 +17,11 @@ class InvalidSystemException(Exception):
 
 
 class KCPHandler:
-    def __init__(self, bot_logger: BotLogger, svc_mode: ServiceMode, config: KCPConfig):
+    def __init__(self, bot_logger: BotLogger, svc_mode: ServiceMode, kcp_config: KCPConfig, handler_config: HandlerConfig):
         self._bot_logger: BotLogger = bot_logger
         self._svc_mode: ServiceMode = svc_mode
-        self._config: KCPConfig = config
+        self._kcp_config: KCPConfig = kcp_config
+        self._handler_config: HandlerConfig = handler_config
 
     def download_bin(self):
         raise NotImplementedError
