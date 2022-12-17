@@ -1,5 +1,5 @@
 import os.path
-from typing import Final, Optional
+from typing import Final, Optional, Type, Any
 
 import yaml
 
@@ -17,6 +17,11 @@ class KCPConfigException(Exception):
 class KeyNotFoundException(Exception):
     def __init__(self, msg: str):
         super(KeyNotFoundException, self).__init__(msg)
+
+
+class KeyNotValidTypeException(Exception):
+    def __init__(self, msg: str):
+        super(KeyNotValidTypeException, self).__init__(msg)
 
 
 class InvalidHandlerException(Exception):
@@ -45,13 +50,13 @@ class Config:
         # print(type(self._config_data))
 
     def _process_server(self):
-        server: dict = self._get_key(self._config_data, "server")
+        server: dict = self._get_key(self._config_data, "server", dict)
         handler: str = self._get_key(server, "handler")
         kcp_config: KCPConfig = self._get_kcp_config(server, "server")
         handler_config: HandlerConfig = self._get_handler_config(server, handler)
 
     def _process_clients(self):
-        clients: list = self._get_key(self._config_data, "clients")
+        clients: list = self._get_key(self._config_data, "clients", list)
         for client in clients:
             self._process_client(client)
 
@@ -61,10 +66,15 @@ class Config:
         handler_config: HandlerConfig = self._get_handler_config(client, handler)
 
     @classmethod
-    def _get_key(cls, instance: dict[str, str], key: str) -> str | dict | list:
-        k: str = instance.get(key)
+    def _get_key(cls, instance: dict[str, str], key: str, type_: Type = str) -> Any:
+        k: Any = instance.get(key)
         if not k:
             raise KeyNotFoundException(f"{key} not found!")
+        if type_ == int and type(k) == str and k.isnumeric():
+            k = int(k)
+        key_type: Type = type(k)
+        if key_type != type_:
+            raise KeyNotValidTypeException(f"{key} has an invalid type! found {key_type}, expected {type_}")
         return k
 
     def _get_handler_config(self, instance: dict, handler_type: str) -> HandlerConfig:
@@ -72,10 +82,16 @@ class Config:
             return HandlerConfig()
         elif handler_type == "ssh":
             conf: dict = self._get_config(instance, handler_type)
-            return SSHHandlerConfig()
+            ssh_user: str = self._get_key(conf, "ssh_user")
+            ssh_pass: str = self._get_key(conf, "ssh_pass")
+            ssh_host: str = self._get_key(conf, "ssh_host")
+            ssh_port: int = self._get_key(conf, "ssh_port", int)
+            return SSHHandlerConfig(ssh_user, ssh_pass, ssh_host, ssh_port)
         elif handler_type == "apex":
             conf: dict = self._get_config(instance, handler_type)
-            return ApexHandlerConfig()
+            panel_user: str = self._get_key(conf, "panel_user")
+            panel_pass: str = self._get_key(conf, "panel_pass")
+            return ApexHandlerConfig(panel_user, panel_pass)
         else:
             raise InvalidHandlerException(f"Unable to parse config for handler named: {handler_type}!")
 
@@ -87,7 +103,7 @@ class Config:
         return config
 
     def _get_kcp_config(self, instance: dict, svc_type: str) -> KCPConfig:
-        kcp_config: dict = self._get_key(instance, "kcp")
+        kcp_config: dict = self._get_key(instance, "kcp", dict)
         listen_addr: str = self._get_key(kcp_config, "listen")
         password: str = self._get_key(kcp_config, "password")
         target_addr: str = kcp_config.get("target")
