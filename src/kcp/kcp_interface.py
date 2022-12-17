@@ -27,15 +27,13 @@ class KCPHandler:
         self._svc_mode: ServiceMode = svc_mode
         self._kcp_config: KCPConfig = kcp_config
         self.__handler_config: HandlerConfig = handler_config
+        self._bot_logger.info(f"Starting a {self._svc_mode.value} with {self.__class__.__name__}")
 
     def download_bin(self):
         raise NotImplementedError
 
     def run_kcp(self):
         raise NotImplementedError
-
-    def get_handler_type(self) -> str:
-        return self.__class__.__name__
 
     @classmethod
     def get_unique_name(cls) -> str:
