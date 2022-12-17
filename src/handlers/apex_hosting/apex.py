@@ -13,19 +13,19 @@ from bs4 import BeautifulSoup, Tag
 from requests import Response
 from requests.cookies import RequestsCookieJar
 
+from src.constant import KCP_JAR_URL
 from src.handlers.apex_hosting.apex_config import ApexHandlerConfig
 from src.handlers.handler_config_interface import HandlerConfig
-from src.kcp.kcp_config import KCPConfig
-from src.constant import KCPTUN_URL
-from src.kcp.kcp_interface import KCPHandler, GithubDownloadException, HandlerConfigNotValid
 from src.helpers.ftp import FTPProcessor, FTPFile
+from src.kcp.kcp_config import KCPConfig
+from src.kcp.kcp_interface import KCPHandler, GithubDownloadException, HandlerConfigNotValid
 from src.logger.bot_logger import BotLogger
 from src.service.mode import ServiceMode
 
 
 class CloudflareException(Exception):
-    def __init__(self):
-        super(CloudflareException, self).__init__()
+    def __init__(self, msg: str):
+        super(CloudflareException, self).__init__(msg)
 
 
 class TokenNotFoundException(Exception):
@@ -110,7 +110,8 @@ class ApexHandler(KCPHandler):
         self._bot_logger.info("Logging in apex...")
         r: Response = requests.get(self._login_url, headers=self._default_headers)
         if r.status_code == 429:
-            raise CloudflareException()
+            time.sleep(40)
+            raise CloudflareException("requests status code 429!")
         soup: BeautifulSoup = BeautifulSoup(r.text, "html.parser")
         token_input: Tag = soup.find("input", attrs={"type": "hidden", "name": "YII_CSRF_TOKEN"})
         if not token_input:
@@ -297,7 +298,7 @@ class ApexHandler(KCPHandler):
         self._server_port: str = server_port
         self._bot_logger.info(f"Downloading a valid jar with GO KCP binary for java {self._JAVA_VERSION}")
         try:
-            r = requests.get(KCPTUN_URL)
+            r = requests.get(KCP_JAR_URL)
         except Exception as e:
             self._bot_logger.error(f"Unable to get valid KCP assets {e}")
             raise GithubDownloadException(f"Unable to get valid KCP assets {e}")
