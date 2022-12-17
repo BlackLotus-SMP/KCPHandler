@@ -10,8 +10,16 @@ clients:
       remote: 1.2.3.4:25566
       listen: :25566
       password: test123
+    config:
+      ssh_user: user
+      ssh_pass: pass
+      ssh_host: 127.0.0.1
+      ssh_port: 5555
   - handler: apex
     kcp:
       remote: 1.2.3.4:25566
       listen: :25566
       password: test123
+    config:
+      panel_user: user
+      panel_pass: pass

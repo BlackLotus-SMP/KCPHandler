@@ -1,8 +1,9 @@
 import os.path
-from dataclasses import dataclass
 from typing import Final, Optional
 
 import yaml
+
+from src.config.kcp_config import KCPClientConfig, KCPServerConfig, KCPConfig
 
 
 class ServerNotFoundException(Exception):
@@ -30,13 +31,6 @@ class HandlerNotFoundException(Exception):
         super(HandlerNotFoundException, self).__init__(msg)
 
 
-@dataclass(frozen=True)
-class KCPConfig:
-    remote: str
-    listen: str
-    password: str
-
-
 class Config:
     def __init__(self):
         self._CONFIG_NAME: Final = "config.yml"
@@ -57,7 +51,7 @@ class Config:
         if not server:
             raise ServerNotFoundException("server yaml not configured properly!")
         handler: str = self._get_handler(server)
-        kcp_config: KCPConfig = self._get_kcp_config(server)
+        kcp_config: KCPConfig = self._get_kcp_config(server, "server")
 
     def _process_clients(self):
         clients: list = self._config_data.get("clients")
@@ -68,7 +62,7 @@ class Config:
 
     def _process_client(self, client: dict):
         handler: str = self._get_handler(client)
-        kcp_config: KCPConfig = self._get_kcp_config(client)
+        kcp_config: KCPConfig = self._get_kcp_config(client, "client")
 
     @classmethod
     def _get_handler(cls, instance: dict[str, str]) -> str:
@@ -78,7 +72,7 @@ class Config:
         return handler
 
     @classmethod
-    def _get_kcp_config(cls, instance: dict) -> KCPConfig:
+    def _get_kcp_config(cls, instance: dict, type_: str) -> KCPConfig:
         kcp_config: dict = instance.get("kcp")
         if not kcp_config:
             raise KCPConfigNotFoundException("kcp not found")
@@ -94,4 +88,7 @@ class Config:
         password: str = kcp_config.get("password")
         if not password:
             raise KCPConfigException("password kcp config not found")
-        return KCPConfig(remote_addr, listen_addr, password)
+        if type_ == "client":
+            return KCPClientConfig(remote_addr, listen_addr, password)
+        else:
+            return KCPServerConfig(remote_addr, listen_addr, password)
