@@ -1,3 +1,4 @@
+import json
 import os.path
 from typing import Final, Optional, Type, Any
 
@@ -13,6 +14,11 @@ from src.kcp.kcp_config import KCPClientConfig, KCPServerConfig, KCPConfig
 from src.kcp.kcp_interface import KCPHandler
 from src.logger.bot_logger import BotLogger
 from src.service.mode import ServiceMode
+
+
+class ConfigException(Exception):
+    def __init__(self, msg: str):
+        super(ConfigException, self).__init__(msg)
 
 
 class KCPConfigException(Exception):
@@ -48,10 +54,9 @@ class Config:
 
     def read_config(self) -> (KCPHandler, list[KCPHandler]):
         if not os.path.isfile(self._CONFIG_NAME):
-            raise Exception("Create sample")
+            raise ConfigException("Config file not found!")
         with open(self._CONFIG_NAME, "r") as cfg:
             self._config_data = yaml.load(cfg, Loader=yaml.SafeLoader)
-        print(self._config_data)
         return self._process_server(), self._process_clients()
 
     def _process_server(self) -> KCPHandler:
