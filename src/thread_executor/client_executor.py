@@ -1,8 +1,9 @@
 import time
+import traceback
 from threading import Thread
 
 from src.decorators.background import background
-from src.handlers.kcp_interface import KCPHandler
+from src.kcp.kcp_interface import KCPHandler
 from src.logger.bot_logger import BotLogger
 from src.thread_executor.executor_interface import ThreadExecutor
 
@@ -35,6 +36,7 @@ class ClientExecutor(ThreadExecutor):
             handler.download_bin()
             handler.run_kcp()
         except Exception as e:
+            traceback.print_exception(e)
             self._bot_logger.error(str(e))
 
     def _handler_checker(self):

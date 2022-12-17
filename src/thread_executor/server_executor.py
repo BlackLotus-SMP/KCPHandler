@@ -1,9 +1,10 @@
 import time
+import traceback
 from threading import Thread
 from typing import Optional
 
 from src.decorators.background import background
-from src.handlers.kcp_interface import KCPHandler
+from src.kcp.kcp_interface import KCPHandler
 from src.logger.bot_logger import BotLogger
 from src.thread_executor.executor_interface import ThreadExecutor
 
@@ -22,6 +23,7 @@ class ServerExecutor(ThreadExecutor):
             self._kcp_handler.run_kcp()
         except Exception as e:
             self._bot_logger.error(e)
+            traceback.print_exception(e)
         self._bot_logger.warning("Process finished! retrying in 30 seconds")
         time.sleep(30)
         self._kcp_handler_thread: Optional[Thread] = None

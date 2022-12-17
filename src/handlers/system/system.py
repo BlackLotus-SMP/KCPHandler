@@ -8,10 +8,11 @@ from typing import Optional
 
 import requests
 
-from src.config.kcp_config import KCPConfig
+from src.kcp.kcp_config import KCPConfig
 from src.constant import KCPTUN_URL
-from src.handlers.kcp_interface import KCPHandler, GithubDownloadException, InvalidSystemException
-from src.handlers.process_interface import KCPProcess
+from src.handlers.handler_config_interface import HandlerConfig
+from src.kcp.kcp_interface import KCPHandler, GithubDownloadException, InvalidSystemException
+from src.kcp.process_interface import KCPProcess
 from src.handlers.status import KCPStatus
 from src.helpers.detector import Detector, Arch, OS
 from src.logger.bot_logger import BotLogger
@@ -24,8 +25,8 @@ class SystemProcessException(Exception):
 
 
 class KCPSystemProcess(KCPProcess):
-    def __init__(self, bot_logger: BotLogger, is_client: bool, config: KCPConfig):
-        super().__init__(bot_logger, is_client, config)
+    def __init__(self, bot_logger: BotLogger, is_client: bool, kcp_config: KCPConfig):
+        super().__init__(bot_logger, is_client, kcp_config)
         self._process: Optional[PIPE] = None
 
     def start(self, kcp_path: str):
@@ -42,9 +43,9 @@ class KCPSystemProcess(KCPProcess):
 
     def _start_kcp_process(self, kcp_path: str):
         if self._is_client:
-            kcp_command: str = f"{kcp_path} -r {self._config.remote} -l {self._config.listen} -mode {self._config.mode} --crypt {self._config.crypt} --key {self._config.key}"
+            kcp_command: str = f"{kcp_path} -r {self._kcp_config.remote} -l {self._kcp_config.listen} -mode {self._kcp_config.mode} --crypt {self._kcp_config.crypt} --key {self._kcp_config.key}"
         else:
-            kcp_command: str = f"{kcp_path} -t {self._config.remote} -l {self._config.listen} -mode {self._config.mode} --crypt {self._config.crypt} --key {self._config.key}"
+            kcp_command: str = f"{kcp_path} -t {self._kcp_config.remote} -l {self._kcp_config.listen} -mode {self._kcp_config.mode} --crypt {self._kcp_config.crypt} --key {self._kcp_config.key}"
 
         self._process = Popen(kcp_command, stdin=PIPE, stdout=PIPE, stderr=STDOUT, shell=True)
 
@@ -56,16 +57,15 @@ class KCPSystemProcess(KCPProcess):
                 raise SystemProcessException
             else:
                 _ = text
-                pass
                 # self._bot_logger.info(text.decode("utf8")[:-1])
 
 
 class SystemHandler(KCPHandler):
-    def __init__(self, bot_logger: BotLogger, svc_mode: ServiceMode, config: KCPConfig):
-        super(SystemHandler, self).__init__(bot_logger, svc_mode, config)
+    def __init__(self, bot_logger: BotLogger, svc_mode: ServiceMode, kcp_config: KCPConfig, handler_config: HandlerConfig):
+        super(SystemHandler, self).__init__(bot_logger, svc_mode, kcp_config, handler_config)
         self._bot_logger: BotLogger = bot_logger
         self._kcp_file: Optional[str] = None
-        self._config: KCPConfig = config
+        self._kcp_config: KCPConfig = kcp_config
 
     def download_bin(self):
         detector: Detector = Detector()
@@ -94,7 +94,7 @@ class SystemHandler(KCPHandler):
             raise InvalidSystemException(f"Couldn't find a valid version for this os and arch, information found: os={os_.value}, arch={arch.value}, information retrieved: os={platform.uname().system}, arch={platform.uname().machine}, please report!")
         self._bot_logger.info("Found a valid release!")
         self._bot_logger.info(f"Downloading {download_url}...")
-        if os.path.isdir("resources"):
+        if os.path.isdir("resources"):  # TODO based on random name and dir cleanup
             shutil.rmtree("resources")
         if not os.path.isdir("resources"):
             os.mkdir("resources")
@@ -122,5 +122,5 @@ class SystemHandler(KCPHandler):
         self._bot_logger.info(f"Found a valid binary! {self._kcp_file} ready!")
 
     def run_kcp(self):
-        kcp_process: KCPSystemProcess = KCPSystemProcess(self._bot_logger, self.is_client(), self._config)
+        kcp_process: KCPSystemProcess = KCPSystemProcess(self._bot_logger, self.is_client(), self._kcp_config)
         kcp_process.start(self._kcp_file)

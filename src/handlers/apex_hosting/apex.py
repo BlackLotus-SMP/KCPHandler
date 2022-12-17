@@ -13,17 +13,19 @@ from bs4 import BeautifulSoup, Tag
 from requests import Response
 from requests.cookies import RequestsCookieJar
 
-from src.config.kcp_config import KCPConfig
-from src.constant import KCPTUN_URL
-from src.handlers.kcp_interface import KCPHandler, GithubDownloadException
+from src.constant import KCP_JAR_URL
+from src.handlers.apex_hosting.apex_config import ApexHandlerConfig
+from src.handlers.handler_config_interface import HandlerConfig
 from src.helpers.ftp import FTPProcessor, FTPFile
+from src.kcp.kcp_config import KCPConfig
+from src.kcp.kcp_interface import KCPHandler, GithubDownloadException, HandlerConfigNotValid
 from src.logger.bot_logger import BotLogger
 from src.service.mode import ServiceMode
 
 
 class CloudflareException(Exception):
-    def __init__(self):
-        super(CloudflareException, self).__init__()
+    def __init__(self, msg: str):
+        super(CloudflareException, self).__init__(msg)
 
 
 class TokenNotFoundException(Exception):
@@ -62,18 +64,21 @@ class ApexTimeoutException(Exception):
 
 
 class ApexHandler(KCPHandler):
-    def __init__(self, bot_logger: BotLogger, svc_mode: ServiceMode, config: KCPConfig, panel_user: str, panel_passwd: str):
-        super(ApexHandler, self).__init__(bot_logger, svc_mode, config)
+    def __init__(self, bot_logger: BotLogger, svc_mode: ServiceMode, kcp_config: KCPConfig, handler_config: HandlerConfig):
+        if not isinstance(handler_config, ApexHandlerConfig):
+            raise HandlerConfigNotValid("Invalid handler config object for SSH handler")
 
+        super(ApexHandler, self).__init__(bot_logger, svc_mode, kcp_config, handler_config)
         self._RESOURCES_DIR: Final = self.get_unique_name()
         self._JAR_NAME: Final = "apex_java"
         self._JAVA_VERSION: Final = "8"
+        self.__handler_config: ApexHandlerConfig = handler_config
 
         self._bot_logger: BotLogger = bot_logger
         self._kcp_file: Optional[str] = None
-        self._config: KCPConfig = config
-        self._panel_user: str = panel_user
-        self._panel_passwd: str = panel_passwd
+        self._kcp_config: KCPConfig = kcp_config
+        self._panel_user: str = self.__handler_config.panel_user
+        self._panel_pass: str = self.__handler_config.panel_pass
         self._url: str = "https://panel.apexminecrafthosting.com"
         self._login_url: str = f"{self._url}/site/login"
         self._server_id: Optional[str] = ""
@@ -105,7 +110,8 @@ class ApexHandler(KCPHandler):
         self._bot_logger.info("Logging in apex...")
         r: Response = requests.get(self._login_url, headers=self._default_headers)
         if r.status_code == 429:
-            raise CloudflareException()
+            time.sleep(40)
+            raise CloudflareException("requests status code 429!")
         soup: BeautifulSoup = BeautifulSoup(r.text, "html.parser")
         token_input: Tag = soup.find("input", attrs={"type": "hidden", "name": "YII_CSRF_TOKEN"})
         if not token_input:
@@ -116,7 +122,7 @@ class ApexHandler(KCPHandler):
         login_data: dict[str, str] = {
             "YII_CSRF_TOKEN": self._csrf_token,
             "LoginForm[name]": self._panel_user,
-            "LoginForm[password]": self._panel_passwd,
+            "LoginForm[password]": self._panel_pass,
             "LoginForm[rememberMe]": "1",
             "LoginForm[ignoreIp]": "1",
             "yt0": "Login"
@@ -212,7 +218,7 @@ class ApexHandler(KCPHandler):
 
     def _ftp_upload(self, server_ip: str, ftp_user: str):
         self._bot_logger.info("Logging in the FTP server")
-        with ftplib.FTP(host=server_ip, user=ftp_user, passwd=self._panel_passwd) as ftp:
+        with ftplib.FTP(host=server_ip, user=ftp_user, passwd=self._panel_pass) as ftp:
             ftp_processor: FTPProcessor = FTPProcessor(ftp)
 
             root_files: list[FTPFile] = ftp_processor.list_files()
@@ -259,11 +265,11 @@ class ApexHandler(KCPHandler):
                 ftp_processor.delete_file(f"jar/{self._JAR_NAME}-{self._JAVA_VERSION}.jar")
 
             config: dict[str, str] = {
-                "remoteaddr": self._config.remote,
-                "localaddr": self._config.listen,
-                "mode": self._config.mode,
-                "crypt": self._config.crypt,
-                "key": self._config.key
+                "remoteaddr": self._kcp_config.remote,
+                "localaddr": self._kcp_config.listen,
+                "mode": self._kcp_config.mode,
+                "crypt": self._kcp_config.crypt,
+                "key": self._kcp_config.key
             }
             with open(f"{self._RESOURCES_DIR}/config.json", "w") as f:
                 f.write(json.dumps(config, indent=2))
@@ -292,7 +298,7 @@ class ApexHandler(KCPHandler):
         self._server_port: str = server_port
         self._bot_logger.info(f"Downloading a valid jar with GO KCP binary for java {self._JAVA_VERSION}")
         try:
-            r = requests.get(KCPTUN_URL)
+            r = requests.get(KCP_JAR_URL)
         except Exception as e:
             self._bot_logger.error(f"Unable to get valid KCP assets {e}")
             raise GithubDownloadException(f"Unable to get valid KCP assets {e}")
