@@ -4,6 +4,7 @@
 
 - [ ] add Apex Server support
 - [ ] add yaml config file
+- [ ] add json config file compat
 - [ ] argument for config file
 - [ ] better ftp port detection
 - [x] ssh handler
