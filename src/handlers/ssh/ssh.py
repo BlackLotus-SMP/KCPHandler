@@ -11,23 +11,25 @@ from paramiko.sftp_client import SFTPClient
 
 from src.config.kcp_config import KCPConfig
 from src.constant import KCPTUN_URL
-from src.handlers.kcp_interface import KCPHandler, InvalidSystemException, GithubDownloadException
+from src.handlers.handler_config_interface import HandlerConfig
+from src.handlers.kcp_interface import KCPHandler, InvalidSystemException, GithubDownloadException, HandlerConfigNotValid
 from src.handlers.process_interface import KCPProcess
+from src.handlers.ssh.ssh_config import SSHHandlerConfig
 from src.helpers.detector import Detector, Arch, OS
 from src.logger.bot_logger import BotLogger
 from src.service.mode import ServiceMode
 
 
 class KCPSSHProcess(KCPProcess):
-    def __init__(self, bot_logger: BotLogger, is_client: bool, config: KCPConfig, ssh_client: SSHClient):
-        super().__init__(bot_logger, is_client, config)
+    def __init__(self, bot_logger: BotLogger, is_client: bool, kcp_config: KCPConfig, ssh_client: SSHClient):
+        super().__init__(bot_logger, is_client, kcp_config)
         self._ssh_client: SSHClient = ssh_client
 
     def start(self, kcp_path: str):
         if self._is_client:
-            kcp_command: str = f"./{kcp_path} -r {self._config.remote} -l {self._config.listen} -mode {self._config.mode} --crypt {self._config.crypt} --key {self._config.key}"
+            kcp_command: str = f"./{kcp_path} -r {self._kcp_config.remote} -l {self._kcp_config.listen} -mode {self._kcp_config.mode} --crypt {self._kcp_config.crypt} --key {self._kcp_config.key}"
         else:
-            kcp_command: str = f"./{kcp_path} -t {self._config.remote} -l {self._config.listen} -mode {self._config.mode} --crypt {self._config.crypt} --key {self._config.key}"
+            kcp_command: str = f"./{kcp_path} -t {self._kcp_config.remote} -l {self._kcp_config.listen} -mode {self._kcp_config.mode} --crypt {self._kcp_config.crypt} --key {self._kcp_config.key}"
 
         chan: Channel = self._ssh_client.invoke_shell()
         chan.send(bytes(kcp_command + "\n", "utf-8"))
@@ -47,16 +49,20 @@ class KCPSSHProcess(KCPProcess):
 
 
 class SSHHandler(KCPHandler):
-    def __init__(self, bot_logger: BotLogger, svc_mode: ServiceMode, config: KCPConfig, ssh_user: str, ssh_pass: str, ssh_host: str, ssh_port: int):
-        super(SSHHandler, self).__init__(bot_logger, svc_mode, config)
+    def __init__(self, bot_logger: BotLogger, svc_mode: ServiceMode, kcp_config: KCPConfig, handler_config: HandlerConfig):
+        if not isinstance(handler_config, SSHHandlerConfig):
+            raise HandlerConfigNotValid("Invalid handler config object for SSH handler")
+
+        super(SSHHandler, self).__init__(bot_logger, svc_mode, kcp_config, handler_config)
+        self.__handler_config: SSHHandlerConfig = handler_config
         self._bot_logger: BotLogger = bot_logger
         self._kcp_file: Optional[str] = None
-        self._config: KCPConfig = config
+        self._kcp_config: KCPConfig = kcp_config
 
-        self._ssh_user: str = ssh_user
-        self._ssh_pass: str = ssh_pass
-        self._ssh_port: int = ssh_port
-        self._ssh_host: str = ssh_host
+        self._ssh_user: str = self.__handler_config.ssh_user
+        self._ssh_pass: str = self.__handler_config.ssh_pass
+        self._ssh_port: int = self.__handler_config.ssh_port
+        self._ssh_host: str = self.__handler_config.ssh_host
 
         self._ssh_client: Optional[SSHClient] = None
         self._bin_remote_path: Optional[str] = None
@@ -143,5 +149,5 @@ class SSHHandler(KCPHandler):
         self._bot_logger.info(f"{self._bin_remote_path} ready!")
 
     def run_kcp(self):
-        kcp_process: KCPSSHProcess = KCPSSHProcess(self._bot_logger, self.is_client(), self._config, self._ssh_client)
+        kcp_process: KCPSSHProcess = KCPSSHProcess(self._bot_logger, self.is_client(), self._kcp_config, self._ssh_client)
         kcp_process.start(self._bin_remote_path)

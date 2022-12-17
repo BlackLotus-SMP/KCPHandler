@@ -16,6 +16,11 @@ class InvalidSystemException(Exception):
         super(InvalidSystemException, self).__init__(msg)
 
 
+class HandlerConfigNotValid(Exception):
+    def __init__(self, msg: str):
+        super(HandlerConfigNotValid, self).__init__(msg)
+
+
 class KCPHandler:
     def __init__(self, bot_logger: BotLogger, svc_mode: ServiceMode, kcp_config: KCPConfig, handler_config: HandlerConfig):
         self._bot_logger: BotLogger = bot_logger
