@@ -26,7 +26,7 @@ class KCPHandler:
         self._bot_logger: BotLogger = bot_logger
         self._svc_mode: ServiceMode = svc_mode
         self._kcp_config: KCPConfig = kcp_config
-        self._handler_config: HandlerConfig = handler_config
+        self.__handler_config: HandlerConfig = handler_config
 
     def download_bin(self):
         raise NotImplementedError
