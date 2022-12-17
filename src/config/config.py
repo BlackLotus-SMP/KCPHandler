@@ -3,7 +3,7 @@ from typing import Final, Optional
 
 import yaml
 
-from src.config.kcp_config import KCPClientConfig, KCPServerConfig, KCPConfig
+from src.kcp.kcp_config import KCPClientConfig, KCPServerConfig, KCPConfig
 
 
 class ServerNotFoundException(Exception):

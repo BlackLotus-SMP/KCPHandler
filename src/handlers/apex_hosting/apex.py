@@ -13,9 +13,9 @@ from bs4 import BeautifulSoup, Tag
 from requests import Response
 from requests.cookies import RequestsCookieJar
 
-from src.config.kcp_config import KCPConfig
+from src.kcp.kcp_config import KCPConfig
 from src.constant import KCPTUN_URL
-from src.handlers.kcp_interface import KCPHandler, GithubDownloadException
+from src.kcp.kcp_interface import KCPHandler, GithubDownloadException
 from src.helpers.ftp import FTPProcessor, FTPFile
 from src.logger.bot_logger import BotLogger
 from src.service.mode import ServiceMode

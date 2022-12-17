@@ -1,4 +1,4 @@
-from src.config.kcp_config import KCPConfig
+from src.kcp.kcp_config import KCPConfig
 from src.handlers.status import KCPStatus
 from src.logger.bot_logger import BotLogger
 
