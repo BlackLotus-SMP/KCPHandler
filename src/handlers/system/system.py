@@ -94,7 +94,7 @@ class SystemHandler(KCPHandler):
             raise InvalidSystemException(f"Couldn't find a valid version for this os and arch, information found: os={os_.value}, arch={arch.value}, information retrieved: os={platform.uname().system}, arch={platform.uname().machine}, please report!")
         self._bot_logger.info("Found a valid release!")
         self._bot_logger.info(f"Downloading {download_url}...")
-        if os.path.isdir("resources"):
+        if os.path.isdir("resources"):  # TODO based on random name and dir cleanup
             shutil.rmtree("resources")
         if not os.path.isdir("resources"):
             os.mkdir("resources")
