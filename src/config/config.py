@@ -1,4 +1,4 @@
-import os.path
+import json
 from io import TextIOWrapper
 from typing import Optional, Type, Any
 
@@ -60,7 +60,9 @@ class Config:
         if file.name.endswith(".yaml") or file.name.endswith(".yml"):
             with file as f:
                 self._config_data = yaml.load(f, Loader=yaml.SafeLoader)
-            self._config_data = yaml.load(cfg, Loader=yaml.SafeLoader)
+        elif file.name.endswith(".json"):
+            with file as f:
+                self._config_data = json.loads(f.read())
         else:
             file.close()
             raise InvalidConfigFileExtensionException(f"Config file does not have a valid extension [.json/.yaml]")

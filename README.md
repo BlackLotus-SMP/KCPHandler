@@ -4,8 +4,8 @@
 
 - [ ] add Apex Server support
 - [x] add yaml config file
-- [ ] add json config file compat
-- [ ] argument for config file
+- [x] add json config file compat
+- [x] argument for config file
 - [ ] better apex ftp port detection
 - [x] ssh handler
 - [x] config class for handlers
@@ -16,3 +16,4 @@
 - [ ] unique resources names with cleanup
 - [ ] add status to apex handler
 - [ ] interactive CLI
+- [ ] README would be nice...
