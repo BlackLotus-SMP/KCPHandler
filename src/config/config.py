@@ -1,4 +1,3 @@
-import json
 import os.path
 from typing import Final, Optional, Type, Any
 
@@ -10,8 +9,8 @@ from src.handlers.handler_config import HandlerConfig
 from src.handlers.ssh.ssh import SSHHandler
 from src.handlers.ssh.ssh_config import SSHHandlerConfig
 from src.handlers.system.system import SystemHandler
-from src.kcp.kcp_config import KCPClientConfig, KCPServerConfig, KCPConfig
 from src.kcp.kcp import KCPHandler
+from src.kcp.kcp_config import KCPClientConfig, KCPServerConfig, KCPConfig
 from src.logger.bot_logger import BotLogger
 from src.service.mode import ServiceMode
 
@@ -95,26 +94,19 @@ class Config:
         if handler_type == "system":
             return SystemHandler, HandlerConfig()
         elif handler_type == "ssh":
-            conf: dict = self._get_config(instance, handler_type)
+            conf: dict = self._get_key(instance, "config", dict)
             ssh_user: str = self._get_key(conf, "ssh_user")
             ssh_pass: str = self._get_key(conf, "ssh_pass")
             ssh_host: str = self._get_key(conf, "ssh_host")
             ssh_port: int = self._get_key(conf, "ssh_port", int)
             return SSHHandler, SSHHandlerConfig(ssh_user, ssh_pass, ssh_host, ssh_port)
         elif handler_type == "apex":
-            conf: dict = self._get_config(instance, handler_type)
+            conf: dict = self._get_key(instance, "config", dict)
             panel_user: str = self._get_key(conf, "panel_user")
             panel_pass: str = self._get_key(conf, "panel_pass")
             return ApexHandler, ApexHandlerConfig(panel_user, panel_pass)
         else:
             raise InvalidHandlerException(f"Unable to parse config for handler named: {handler_type}!")
-
-    @classmethod
-    def _get_config(cls, instance: dict, handler_type: str) -> dict:
-        config: dict = instance.get("config")
-        if not config:
-            raise InvalidConfigHandlerException(f"Config not found for {handler_type}!")
-        return config
 
     def _get_kcp_config(self, instance: dict, svc_type: str) -> KCPConfig:
         kcp_config: dict = self._get_key(instance, "kcp", dict)
