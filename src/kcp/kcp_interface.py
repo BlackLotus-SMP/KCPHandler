@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from src.kcp.kcp_config import KCPConfig
-from src.handlers.handler_config_interface import HandlerConfig
+from src.handlers.handler_config import HandlerConfig
 from src.logger.bot_logger import BotLogger
 from src.service.mode import ServiceMode
 

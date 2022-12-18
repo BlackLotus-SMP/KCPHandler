@@ -14,8 +14,8 @@ from requests import Response
 from requests.cookies import RequestsCookieJar
 
 from src.constant import KCP_JAR_URL
-from src.handlers.apex_hosting.apex_config import ApexHandlerConfig
-from src.handlers.handler_config_interface import HandlerConfig
+from src.handlers.apex.apex_config import ApexHandlerConfig
+from src.handlers.handler_config import HandlerConfig
 from src.helpers.ftp import FTPProcessor, FTPFile
 from src.kcp.kcp_config import KCPConfig
 from src.kcp.kcp_interface import KCPHandler, GithubDownloadException, HandlerConfigNotValid

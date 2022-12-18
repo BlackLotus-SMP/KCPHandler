@@ -11,9 +11,9 @@ from paramiko.sftp_client import SFTPClient
 
 from src.kcp.kcp_config import KCPConfig
 from src.constant import KCPTUN_URL
-from src.handlers.handler_config_interface import HandlerConfig
+from src.handlers.handler_config import HandlerConfig
 from src.kcp.kcp_interface import KCPHandler, InvalidSystemException, GithubDownloadException, HandlerConfigNotValid
-from src.kcp.process_interface import KCPProcess
+from src.kcp.process import KCPProcess
 from src.handlers.ssh.ssh_config import SSHHandlerConfig
 from src.helpers.detector import Detector, Arch, OS
 from src.logger.bot_logger import BotLogger

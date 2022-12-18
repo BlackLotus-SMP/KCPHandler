@@ -1,4 +1,4 @@
-from src.handlers.handler_config_interface import HandlerConfig
+from src.handlers.handler_config import HandlerConfig
 
 
 class ApexHandlerConfig(HandlerConfig):

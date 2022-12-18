@@ -4,9 +4,9 @@ from typing import Final, Optional, Type, Any
 
 import yaml
 
-from src.handlers.apex_hosting.apex import ApexHandler
-from src.handlers.apex_hosting.apex_config import ApexHandlerConfig
-from src.handlers.handler_config_interface import HandlerConfig
+from src.handlers.apex.apex import ApexHandler
+from src.handlers.apex.apex_config import ApexHandlerConfig
+from src.handlers.handler_config import HandlerConfig
 from src.handlers.ssh.ssh import SSHHandler
 from src.handlers.ssh.ssh_config import SSHHandlerConfig
 from src.handlers.system.system import SystemHandler
