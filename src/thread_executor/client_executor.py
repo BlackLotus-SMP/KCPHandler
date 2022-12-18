@@ -3,7 +3,7 @@ import traceback
 from threading import Thread
 
 from src.decorators.background import background
-from src.kcp.kcp_interface import KCPHandler
+from src.kcp.kcp import KCPHandler
 from src.logger.bot_logger import BotLogger
 from src.thread_executor.executor import ThreadExecutor
 

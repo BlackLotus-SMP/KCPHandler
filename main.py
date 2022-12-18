@@ -1,6 +1,6 @@
 from src.config.config import Config
 from src.constant import BOT_NAME
-from src.kcp.kcp_interface import KCPHandler
+from src.kcp.kcp import KCPHandler
 from src.logger.bot_logger import BotLogger
 from src.thread_executor.client_executor import ClientExecutor
 from src.thread_executor.server_executor import ServerExecutor

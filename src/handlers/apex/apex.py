@@ -18,7 +18,7 @@ from src.handlers.apex.apex_config import ApexHandlerConfig
 from src.handlers.handler_config import HandlerConfig
 from src.helpers.ftp import FTPProcessor, FTPFile
 from src.kcp.kcp_config import KCPConfig
-from src.kcp.kcp_interface import KCPHandler, GithubDownloadException, HandlerConfigNotValid
+from src.kcp.kcp import KCPHandler, GithubDownloadException, HandlerConfigNotValid
 from src.logger.bot_logger import BotLogger
 from src.service.mode import ServiceMode
 

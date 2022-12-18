@@ -11,7 +11,7 @@ from src.handlers.ssh.ssh import SSHHandler
 from src.handlers.ssh.ssh_config import SSHHandlerConfig
 from src.handlers.system.system import SystemHandler
 from src.kcp.kcp_config import KCPClientConfig, KCPServerConfig, KCPConfig
-from src.kcp.kcp_interface import KCPHandler
+from src.kcp.kcp import KCPHandler
 from src.logger.bot_logger import BotLogger
 from src.service.mode import ServiceMode
 
