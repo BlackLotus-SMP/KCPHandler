@@ -69,9 +69,9 @@ class ApexHandler(KCPHandler):
             raise HandlerConfigNotValid("Invalid handler config object for SSH handler")
 
         super(ApexHandler, self).__init__(bot_logger, svc_mode, kcp_config, handler_config)
-        self._RESOURCES_DIR: Final = self.get_unique_name()
-        self._JAR_NAME: Final = "apex_java"
-        self._JAVA_VERSION: Final = "8"
+        self._RESOURCES_DIR: Final[str] = self.get_unique_name()
+        self._JAR_NAME: Final[str] = "apex_java"
+        self._JAVA_VERSION: Final[str] = "8"
         self.__handler_config: ApexHandlerConfig = handler_config
 
         self._bot_logger: BotLogger = bot_logger
