@@ -9,7 +9,6 @@ class KCPProcess:
         self._process_status: KCPStatus = KCPStatus.STARTING
         self._is_client: bool = is_client
         self._kcp_config: KCPConfig = kcp_config
-        self._bot_logger.info(f"{self.__class__.__name__} starting...")
 
     def start(self, kcp_path: str):
         raise NotImplementedError
