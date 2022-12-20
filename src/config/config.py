@@ -1,5 +1,6 @@
-import os.path
-from typing import Final, Optional, Type, Any
+import json
+from io import TextIOWrapper
+from typing import Optional, Type, Any
 
 import yaml
 
@@ -45,17 +46,26 @@ class InvalidConfigHandlerException(Exception):
         super(InvalidConfigHandlerException, self).__init__(msg)
 
 
+class InvalidConfigFileExtensionException(Exception):
+    def __init__(self, msg: str):
+        super(InvalidConfigFileExtensionException, self).__init__(msg)
+
+
 class Config:
     def __init__(self, bot_logger: BotLogger):
-        self._CONFIG_NAME: Final = "config.yml"
         self._config_data: Optional[dict] = None
         self._bot_logger: BotLogger = bot_logger
 
-    def read_config(self) -> (KCPHandler, list[KCPHandler]):
-        if not os.path.isfile(self._CONFIG_NAME):
-            raise ConfigException("Config file not found!")
-        with open(self._CONFIG_NAME, "r") as cfg:
-            self._config_data = yaml.load(cfg, Loader=yaml.SafeLoader)
+    def read_config(self, file: TextIOWrapper) -> (KCPHandler, list[KCPHandler]):
+        if file.name.endswith(".yaml") or file.name.endswith(".yml"):
+            with file as f:
+                self._config_data = yaml.load(f, Loader=yaml.SafeLoader)
+        elif file.name.endswith(".json"):
+            with file as f:
+                self._config_data = json.loads(f.read())
+        else:
+            file.close()
+            raise InvalidConfigFileExtensionException(f"Config file does not have a valid extension [.json/.yaml]")
         return self._process_server(), self._process_clients()
 
     def _process_server(self) -> KCPHandler:
