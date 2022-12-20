@@ -1,4 +1,4 @@
-from argparse import ArgumentParser, FileType
+from argparse import ArgumentParser, FileType, Namespace
 
 from src.config.config import Config
 from src.constant import BOT_NAME
@@ -11,7 +11,7 @@ from src.thread_executor.server_executor import ServerExecutor
 def main():
     parser: ArgumentParser = ArgumentParser()
     parser.add_argument("-c", "--config", help="path of the config file", type=FileType("r"), default="config.yml")
-    args = parser.parse_args()
+    args: Namespace = parser.parse_args()
 
     bot_logger = BotLogger()
     bot_logger.info(f"Started {BOT_NAME} bot")
