@@ -6,7 +6,7 @@
 - [x] add yaml config file
 - [x] add json config file compat
 - [x] argument for config file
-- [ ] better apex ftp port detection
+- [x] better apex ftp port detection
 - [x] ssh handler
 - [x] config class for handlers
 - [ ] system detect random errors like port binding
