@@ -9,13 +9,13 @@ from paramiko.channel import Channel
 from paramiko.client import SSHClient, AutoAddPolicy
 from paramiko.sftp_client import SFTPClient
 
-from src.kcp.kcp_config import KCPConfig
 from src.constant import KCPTUN_URL
 from src.handlers.handler_config import HandlerConfig
-from src.kcp.kcp import KCPHandler, InvalidSystemException, GithubDownloadException, HandlerConfigNotValid
-from src.kcp.process import KCPProcess
 from src.handlers.ssh.ssh_config import SSHHandlerConfig
 from src.helpers.detector import Detector, Arch, OS
+from src.kcp.kcp import KCPHandler, InvalidSystemException, GithubDownloadException, HandlerConfigNotValid
+from src.kcp.kcp_config import KCPConfig
+from src.kcp.process import KCPProcess
 from src.logger.bot_logger import BotLogger
 from src.service.mode import ServiceMode
 
@@ -147,7 +147,6 @@ class SSHHandler(KCPHandler):
         self._bot_logger.info("+x perms to the bin file")
         _ = self._simple_command(f"chmod +x {self._bin_remote_path}")
         self._bot_logger.info(f"{self._bin_remote_path} ready!")
-
     def run_kcp(self):
         kcp_process: KCPSSHProcess = KCPSSHProcess(self._bot_logger, self.is_client(), self._kcp_config, self._ssh_client)
         kcp_process.start(self._bin_remote_path)

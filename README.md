@@ -2,7 +2,7 @@
 
 ## TODO
 
-- [ ] add Apex Server support
+- [x] add Apex Server support
 - [x] add yaml config file
 - [x] add json config file compat
 - [x] argument for config file
