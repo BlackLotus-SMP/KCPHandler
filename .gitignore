@@ -163,3 +163,4 @@ resources/
 *_test.py
 config.yml
 config.json
+junit/
