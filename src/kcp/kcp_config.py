@@ -6,6 +6,9 @@ class KCPConfig:
         self.key: str = password
         self.remote: str = remote
 
+    def __repr__(self):
+        return f"Config[mode={self.mode}, crypt={self.crypt}, listen={self.crypt}, key={self.key}, remote={self.remote}]"
+
 
 class KCPServerConfig(KCPConfig):
     def __init__(self, target: str, listen: str, password: str):
