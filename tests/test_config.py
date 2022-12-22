@@ -23,6 +23,17 @@ class ConfigTest(unittest.TestCase):
         self.assertEqual(type(self.config.get_kcp_config(instance, "server")), KCPServerConfig)
         self.assertNotEqual(type(self.config.get_kcp_config(instance, "server")), KCPClientConfig)
 
+    def test_2_invalid_kcp_config(self):
+        instance: dict = {"kcp": {"listen": ":25566", "password": "test123"}}
+        self.assertRaises(KCPConfigException, self.config.get_kcp_config, instance, "client")
+        self.assertRaises(KCPConfigException, self.config.get_kcp_config, instance, "server")
+        instance: dict = {"kcp": {"listen": ":25566"}}
+        self.assertRaises(KeyNotFoundException, self.config.get_kcp_config, instance, "client")
+        instance: dict = {"kcp": {"password": "test123"}}
+        self.assertRaises(KeyNotFoundException, self.config.get_kcp_config, instance, "server")
+        instance: dict = {"kcp": {"target": "1.2.3.4:25566", "listen": ":25566", "password": "test123"}}
+        self.assertRaises(KCPConfigException, self.config.get_kcp_config, instance, "idk")
+
 
 if __name__ == "__main__":
     unittest.main()
