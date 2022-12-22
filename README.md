@@ -17,3 +17,4 @@
 - [ ] add status to apex handler
 - [ ] interactive CLI
 - [ ] README would be nice...
+- [ ] testing
