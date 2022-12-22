@@ -34,6 +34,18 @@ class ConfigTest(unittest.TestCase):
         instance: dict = {"kcp": {"target": "1.2.3.4:25566", "listen": ":25566", "password": "test123"}}
         self.assertRaises(KCPConfigException, self.config.get_kcp_config, instance, "idk")
 
+    def test_3_kcp_value_validation(self):
+        instance: dict = {"kcp": {"target": "1.2.3.4:25566", "listen": ":25566", "password": "test123"}}
+        kcp_data: dict = instance.get("kcp")
+        client: KCPConfig = self.config.get_kcp_config(instance, "client")
+        server: KCPConfig = self.config.get_kcp_config(instance, "server")
+        self.assertEqual(client.remote, kcp_data.get("target"))
+        self.assertEqual(server.remote, kcp_data.get("target"))
+        self.assertEqual(client.listen, kcp_data.get("listen"))
+        self.assertEqual(server.listen, kcp_data.get("listen"))
+        self.assertEqual(client.key, kcp_data.get("password"))
+        self.assertEqual(server.key, kcp_data.get("password"))
+
 
 if __name__ == "__main__":
     unittest.main()
