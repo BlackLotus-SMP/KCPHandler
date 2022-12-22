@@ -1,4 +1,3 @@
-import ftplib
 import json
 import os
 import re
@@ -9,7 +8,7 @@ from re import Match
 from typing import Final, Optional, AnyStr
 
 import requests
-from bs4 import BeautifulSoup, Tag
+from bs4 import BeautifulSoup, Tag, ResultSet
 from requests import Response
 from requests.cookies import RequestsCookieJar
 
@@ -17,8 +16,8 @@ from src.constant import KCP_JAR_URL
 from src.handlers.apex.apex_config import ApexHandlerConfig
 from src.handlers.handler_config import HandlerConfig
 from src.helpers.ftp import FTPProcessor, FTPFile
-from src.kcp.kcp_config import KCPConfig
 from src.kcp.kcp import KCPHandler, GithubDownloadException, HandlerConfigNotValid
+from src.kcp.kcp_config import KCPConfig
 from src.logger.bot_logger import BotLogger
 from src.service.mode import ServiceMode
 
@@ -110,6 +109,7 @@ class ApexHandler(KCPHandler):
         self._bot_logger.info("Logging in apex...")
         r: Response = requests.get(self._login_url, headers=self._default_headers)
         if r.status_code == 429:
+            self._bot_logger.error("Thats a cloudflare timeout... waiting 40 seconds!")
             time.sleep(40)
             raise CloudflareException("requests status code 429!")
         soup: BeautifulSoup = BeautifulSoup(r.text, "html.parser")
@@ -172,17 +172,39 @@ class ApexHandler(KCPHandler):
             raise ServerUrlNotFoundException("Unable to find a valid server url!")
         return uri.group(0)
 
-    def _get_ftp_creds(self, login_response: Response) -> (str, str, str, str):
+    def _get_ftp_creds(self) -> (str, str, str):
+        r: Response = requests.get(f"{self._url}/ftpClient/login/{self._server_id}", headers=self._default_headers, cookies=self._cookies)
+        s: BeautifulSoup = BeautifulSoup(r.text, "html.parser")
+        table: Tag = s.find("table", attrs={"class": "detail-view"})
+        rows: ResultSet[Tag] = table.find_all("tr")
+        ftp_host: str = ""
+        ftp_port: str = ""
+        ftp_user: str = ""
+        for row in rows:
+            tag_header_name: Tag = row.find("th")
+            if not tag_header_name:
+                continue
+            header_name: str = tag_header_name.text.lower()
+            if not header_name:
+                continue
+            if "ftp address" in header_name:
+                ftp_host: str = row.find_all("td")[0].text
+            if "ftp port" in header_name:
+                ftp_port: str = row.find_all("td")[0].text
+            if "ftp username" in header_name:
+                ftp_user: str = row.find_all("td")[0].text
+        self._bot_logger.info("Server FTP creds retrieved")
+        return ftp_host, ftp_port, ftp_user
+
+    def _get_server_data(self, login_response: Response) -> (str, str):
         self._bot_logger.info("Retrieving FTP credentials")
         ip_finder: Optional[Match[AnyStr]] = re.search(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,5}", login_response.text)
         if not ip_finder:
             raise IPNotFoundException("")
         server_ip: str = ip_finder.group(0).split(":")[0]
         server_port: str = ip_finder.group(0).split(":")[1]
-        ftp_port: str = "21"
-        ftp_user: str = f"{self._panel_user.title()}.{self._server_id}"
-        self._bot_logger.info("FTP credentials retrieved")
-        return server_ip, server_port, ftp_port, ftp_user
+        self._bot_logger.info("Server data retrieved")
+        return server_ip, server_port
 
     def _do_redirect(self, url: str):
         r: Response = requests.get(url, headers=self._default_headers, cookies=self._cookies)
@@ -216,12 +238,10 @@ class ApexHandler(KCPHandler):
         }
         return apply_jar
 
-    def _ftp_upload(self, server_ip: str, ftp_user: str):
+    def _ftp_upload(self, ftp_host: str, ftp_port: str, ftp_user: str):
         self._bot_logger.info("Logging in the FTP server")
-        with ftplib.FTP(host=server_ip, user=ftp_user, passwd=self._panel_pass) as ftp:
-            ftp_processor: FTPProcessor = FTPProcessor(ftp)
-
-            root_files: list[FTPFile] = ftp_processor.list_files()
+        with FTPProcessor(ftp_host, ftp_port, ftp_user, self._panel_pass) as ftp:
+            root_files: list[FTPFile] = ftp.list_files()
             jar_dir_found: bool = False
             data_dir_found: bool = False
             for f in root_files:
@@ -231,12 +251,12 @@ class ApexHandler(KCPHandler):
                     data_dir_found: bool = True
             if not jar_dir_found:
                 self._bot_logger.info("jar dir not found! creating...")
-                ftp_processor.create_dir("jar")
+                ftp.create_dir("jar")
             if not data_dir_found:
                 self._bot_logger.info("data dir not found! creating...")
-                ftp_processor.create_dir("data")
+                ftp.create_dir("data")
 
-            data_files: list[FTPFile] = ftp_processor.list_files("data")
+            data_files: list[FTPFile] = ftp.list_files("data")
             config_dir_found: bool = False
             for f in data_files:
                 if f.is_dir() and f.get_name() == "config":
@@ -244,25 +264,25 @@ class ApexHandler(KCPHandler):
 
             if not config_dir_found:
                 self._bot_logger.info("data/config dir not found! creating...")
-                ftp_processor.create_dir("config", base_path="data")
+                ftp.create_dir("config", base_path="data")
 
-            config_files: list[FTPFile] = ftp_processor.list_files("data/config")
+            config_files: list[FTPFile] = ftp.list_files("data/config")
             config_file_found: bool = False
             for f in config_files:
                 if not f.is_dir() and f.get_name() == "config.json":
                     config_file_found: bool = True
             if config_file_found:
                 self._bot_logger.info("old data/config/config.json found! reloading file...")
-                ftp_processor.delete_file("data/config/config.json")
+                ftp.delete_file("data/config/config.json")
 
-            jar_files: list[FTPFile] = ftp_processor.list_files("jar")
+            jar_files: list[FTPFile] = ftp.list_files("jar")
             jar_found: bool = False
             for f in jar_files:
                 if not f.is_dir() and f.get_name() == f"{self._JAR_NAME}-{self._JAVA_VERSION}.jar":
                     jar_found: bool = True
             if jar_found:
                 self._bot_logger.info(f"old jar/{self._JAR_NAME}-{self._JAVA_VERSION}.jar found! reloading file...")
-                ftp_processor.delete_file(f"jar/{self._JAR_NAME}-{self._JAVA_VERSION}.jar")
+                ftp.delete_file(f"jar/{self._JAR_NAME}-{self._JAVA_VERSION}.jar")
 
             config: dict[str, str] = {
                 "remoteaddr": self._kcp_config.remote,
@@ -275,13 +295,13 @@ class ApexHandler(KCPHandler):
                 f.write(json.dumps(config, indent=2))
 
             self._bot_logger.info(f"Uploading jar/{self._JAR_NAME}-{self._JAVA_VERSION}.jar...")
-            ftp_processor.upload_file(
+            ftp.upload_file(
                 f"{self._RESOURCES_DIR}/{self._JAR_NAME}-{self._JAVA_VERSION}.jar",
                 f"{self._JAR_NAME}-{self._JAVA_VERSION}.jar",
                 "jar"
             )
             self._bot_logger.info(f"Uploading data/config/config.json...")
-            ftp_processor.upload_file(f"{self._RESOURCES_DIR}/config.json", "config.json", "data/config")
+            ftp.upload_file(f"{self._RESOURCES_DIR}/config.json", "config.json", "data/config")
             os.remove(f"{self._RESOURCES_DIR}/config.json")
         os.remove(f"{self._RESOURCES_DIR}/{self._JAR_NAME}-{self._JAVA_VERSION}.jar")
 
@@ -293,7 +313,8 @@ class ApexHandler(KCPHandler):
         self._resolve_challenge(dashboard)
         self._server_id: str = server_url.split("/")[-1]
         self._default_headers.update({"Referer": f"{self._url}/server/{self._server_id}"})
-        server_ip, server_port, ftp_port, ftp_user = self._get_ftp_creds(dashboard)
+        server_ip, server_port = self._get_server_data(dashboard)
+        ftp_host, ftp_port, ftp_user = self._get_ftp_creds()
         self._server_ip: str = server_ip
         self._server_port: str = server_port
         self._bot_logger.info(f"Downloading a valid jar with GO KCP binary for java {self._JAVA_VERSION}")
@@ -324,7 +345,7 @@ class ApexHandler(KCPHandler):
                     f.write(chunk)
 
         self._bot_logger.info("Uploading assets to the apex FTP server...")
-        self._ftp_upload(server_ip, ftp_user)
+        self._ftp_upload(ftp_host, ftp_port, ftp_user)
         self._bot_logger.info("Uploaded! everything is up to date")
         self._bot_logger.info("Applying changes")
         self._default_headers.update({"Sec-Fetch-Dest": "empty"})
