@@ -16,6 +16,13 @@ class ConfigTest(unittest.TestCase):
         self.assertEqual(type(self.config.get_kcp_config(instance, "client")), KCPClientConfig)
         self.assertNotEqual(type(self.config.get_kcp_config(instance, "client")), KCPServerConfig)
 
+    def test_1_server_kcp(self):
+        instance: dict = {"kcp": {"target": "1.2.3.4:25566", "listen": ":25566", "password": "test123"}}
+        server: KCPServerConfig = KCPServerConfig("1.2.3.4:25566", ":25566", "test123")
+        self.assertDictEqual(self.config.get_kcp_config(instance, "server").__dict__, server.__dict__)
+        self.assertEqual(type(self.config.get_kcp_config(instance, "server")), KCPServerConfig)
+        self.assertNotEqual(type(self.config.get_kcp_config(instance, "server")), KCPClientConfig)
+
 
 if __name__ == "__main__":
     unittest.main()
