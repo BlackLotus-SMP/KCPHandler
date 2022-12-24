@@ -1,6 +1,8 @@
 import unittest
 
 from src.config.config import Config, KCPConfigException, KeyNotFoundException
+from src.handlers.handler_config import HandlerConfig
+from src.handlers.system.system import SystemHandler
 from src.kcp.kcp_config import KCPClientConfig, KCPServerConfig, KCPConfig
 from src.logger.bot_logger import BotLogger
 
@@ -45,6 +47,12 @@ class ConfigTest(unittest.TestCase):
         self.assertEqual(server.listen, kcp_data.get("listen"))
         self.assertEqual(client.key, kcp_data.get("password"))
         self.assertEqual(server.key, kcp_data.get("password"))
+
+    def test_4_system_handler(self):
+        instance: dict = {"handler": "system"}
+        handler, config = self.config.get_handler_config(instance)
+        self.assertEqual(handler, SystemHandler)
+        self.assertDictEqual(config.__dict__, HandlerConfig().__dict__)
 
 
 if __name__ == "__main__":
