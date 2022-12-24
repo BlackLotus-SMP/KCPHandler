@@ -17,8 +17,16 @@ class FTPFile:
 
 
 class FTPProcessor:
-    def __init__(self, ftp: ftplib.FTP):
-        self._ftp: ftplib.FTP = ftp
+    def __init__(self, ftp_host: str, ftp_port: str, ftp_user: str, ftp_pass: str):
+        self._ftp: ftplib.FTP = ftplib.FTP()
+        self._ftp.connect(host=ftp_host, port=int(ftp_port))
+        self._ftp.login(user=ftp_user, passwd=ftp_pass)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._ftp.close()
 
     @classmethod
     def get_files(cls, file_list: list[str]) -> list[FTPFile]:

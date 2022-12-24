@@ -13,7 +13,6 @@ from src.constant import KCPTUN_URL
 from src.handlers.handler_config import HandlerConfig
 from src.kcp.kcp import KCPHandler, GithubDownloadException, InvalidSystemException
 from src.kcp.process import KCPProcess
-from src.handlers.status import KCPStatus
 from src.helpers.detector import Detector, Arch, OS
 from src.logger.bot_logger import BotLogger
 from src.service.mode import ServiceMode
@@ -32,14 +31,11 @@ class KCPSystemProcess(KCPProcess):
 
     def start(self, kcp_path: str):
         self._start_kcp_process(kcp_path)
-        self._process_status: KCPStatus = KCPStatus.RUNNING
         try:
             self._kcp_listener()
         except SystemProcessException:
-            self._process_status: KCPStatus = KCPStatus.STOPPED
             self._bot_logger.warning("Process finished")
         except Exception as e:
-            self._process_status: KCPStatus = KCPStatus.FAILED
             self._bot_logger.error(e)
 
     def _start_kcp_process(self, kcp_path: str):
