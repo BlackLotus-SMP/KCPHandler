@@ -13,7 +13,7 @@
 - [ ] add logs to GO KCP and handler listen through ftp to avoid cloudflare antibot checker on log check post
 - [x] dockerfile
 - [ ] SSH login with file
-- [ ] unique resources names with cleanup
+- [x] unique resources names with cleanup
 - [ ] interactive CLI
 - [ ] README would be nice...
 - [ ] testing

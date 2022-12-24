@@ -4,7 +4,7 @@ import re
 import shutil
 import tarfile
 from subprocess import PIPE, Popen, STDOUT
-from typing import Optional
+from typing import Optional, Final
 
 import requests
 
@@ -24,9 +24,10 @@ class SystemProcessException(Exception):
 
 
 class KCPSystemProcess(KCPProcess):
-    def __init__(self, bot_logger: BotLogger, is_client: bool, kcp_config: KCPConfig):
+    def __init__(self, bot_logger: BotLogger, is_client: bool, kcp_config: KCPConfig, resources_path: str):
         super().__init__(bot_logger, is_client, kcp_config)
         self._process: Optional[PIPE] = None
+        self._resources_path: Final[str] = resources_path
 
     def start(self, kcp_path: str):
         self._start_kcp_process(kcp_path)
@@ -53,6 +54,8 @@ class KCPSystemProcess(KCPProcess):
                 raise SystemProcessException
             else:
                 _ = text
+                if os.path.isdir(self._resources_path):
+                    shutil.rmtree(self._resources_path)
                 # self._bot_logger.info(text.decode("utf8")[:-1])
 
 
@@ -62,6 +65,7 @@ class SystemHandler(KCPHandler):
         self._bot_logger: BotLogger = bot_logger
         self._kcp_file: Optional[str] = None
         self._kcp_config: KCPConfig = kcp_config
+        self._RESOURCES_DIR: Final[str] = self.get_unique_name()
 
     def download_bin(self):
         detector: Detector = Detector()
@@ -90,33 +94,33 @@ class SystemHandler(KCPHandler):
             raise InvalidSystemException(f"Couldn't find a valid version for this os and arch, information found: os={os_.value}, arch={arch.value}, information retrieved: os={platform.uname().system}, arch={platform.uname().machine}, please report!")
         self._bot_logger.info("Found a valid release!")
         self._bot_logger.info(f"Downloading {download_url}...")
-        if os.path.isdir("resources"):  # TODO based on random name and dir cleanup
-            shutil.rmtree("resources")
-        if not os.path.isdir("resources"):
-            os.mkdir("resources")
+        if os.path.isdir(self._RESOURCES_DIR):
+            shutil.rmtree(self._RESOURCES_DIR)
+        if not os.path.isdir(self._RESOURCES_DIR):
+            os.mkdir(self._RESOURCES_DIR)
         kcp_compressed = requests.get(download_url, stream=True)
-        with open("resources/compressed.tar.gz", "wb") as f:
+        with open(f"{self._RESOURCES_DIR}/compressed.tar.gz", "wb") as f:
             for chunk in kcp_compressed.iter_content(chunk_size=2048):
                 if chunk:
                     f.write(chunk)
         self._bot_logger.info(f"File downloaded")
-        file: tarfile.TarFile = tarfile.open("resources/compressed.tar.gz")
-        file.extractall(path="resources")
+        file: tarfile.TarFile = tarfile.open(f"{self._RESOURCES_DIR}/compressed.tar.gz")
+        file.extractall(path=self._RESOURCES_DIR)
         file.close()
-        os.remove("resources/compressed.tar.gz")
+        os.remove(f"{self._RESOURCES_DIR}/compressed.tar.gz")
         self._bot_logger.info(f"Extracting a valid binary")
-        files: list[str] = os.listdir("resources")
+        files: list[str] = os.listdir(self._RESOURCES_DIR)
         expected_binary_format: str = "client" if self.is_client() else "server"
         expected_binary_format += f"_{os_.value}_{arch.value}"
         for bin_file in files:
             if bin_file.startswith(expected_binary_format):
-                self._kcp_file = f"resources/{bin_file}"
+                self._kcp_file = f"{self._RESOURCES_DIR}/{bin_file}"
             else:
-                os.remove(f"resources/{bin_file}")
+                os.remove(f"{self._RESOURCES_DIR}/{bin_file}")
         if not self._kcp_file:
             raise InvalidSystemException(f"Couldn't find a valid executable! information found: os={os_.value}, arch={arch.value}, information retrieved: os={platform.uname().system}, arch={platform.uname().machine}, files found: {', '.join(files)}, please report")
         self._bot_logger.info(f"Found a valid binary! {self._kcp_file} ready!")
 
     def run_kcp(self):
-        kcp_process: KCPSystemProcess = KCPSystemProcess(self._bot_logger, self.is_client(), self._kcp_config)
+        kcp_process: KCPSystemProcess = KCPSystemProcess(self._bot_logger, self.is_client(), self._kcp_config, self._RESOURCES_DIR)
         kcp_process.start(self._kcp_file)
