@@ -1,7 +1,9 @@
 import unittest
 
-from src.config.config import Config, KCPConfigException, KeyNotFoundException
+from src.config.config import Config, KCPConfigException, KeyNotFoundException, KeyNotValidTypeException
 from src.handlers.handler_config import HandlerConfig
+from src.handlers.ssh.ssh import SSHHandler
+from src.handlers.ssh.ssh_config import SSHHandlerConfig
 from src.handlers.system.system import SystemHandler
 from src.kcp.kcp_config import KCPClientConfig, KCPServerConfig, KCPConfig
 from src.logger.bot_logger import BotLogger
@@ -53,6 +55,38 @@ class ConfigTest(unittest.TestCase):
         handler, config = self.config.get_handler_config(instance)
         self.assertEqual(handler, SystemHandler)
         self.assertDictEqual(config.__dict__, HandlerConfig().__dict__)
+
+    def test_5_ssh_handler(self):
+        instance: dict = {
+            "handler": "ssh",
+            "config": {
+                "ssh_user": "user",
+                "ssh_pass": "pass",
+                "ssh_host": "127.0.0.1",
+                "ssh_port": 5555
+            }
+        }
+        config_data: dict = instance.get("config")
+        handler, config = self.config.get_handler_config(instance)
+        self.assertEqual(handler, SSHHandler)
+        ssh_config: SSHHandlerConfig = SSHHandlerConfig(
+            config_data.get("ssh_user"),
+            config_data.get("ssh_pass"),
+            config_data.get("ssh_host"),
+            config_data.get("ssh_port")
+        )
+        self.assertDictEqual(config.__dict__, ssh_config.__dict__)
+
+        config_data["ssh_port"] = "5555"
+        self.assertDictEqual(config.__dict__, ssh_config.__dict__)
+
+        config_data["ssh_port"] = "5555xd"
+        instance["config"] = config_data
+        self.assertRaises(KeyNotValidTypeException, self.config.get_handler_config, instance)
+
+        config_data.pop("ssh_port")
+        instance["config"] = config_data
+        self.assertRaises(KeyNotFoundException, self.config.get_handler_config, instance)
 
 
 if __name__ == "__main__":
