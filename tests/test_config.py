@@ -1,7 +1,6 @@
 import unittest
 
-from src.config.config import Config, KCPConfigException, KeyNotFoundException, KeyNotValidTypeException, \
-    InvalidHandlerException
+from src.config.config import Config, KCPConfigException, KeyNotFoundException, KeyNotValidTypeException, InvalidHandlerException
 from src.handlers.apex.apex import ApexHandler
 from src.handlers.apex.apex_config import ApexHandlerConfig
 from src.handlers.handler_config import HandlerConfig
