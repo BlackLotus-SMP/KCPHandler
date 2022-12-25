@@ -1,6 +1,8 @@
 import unittest
 
 from src.config.config import Config, KCPConfigException, KeyNotFoundException, KeyNotValidTypeException
+from src.handlers.apex.apex import ApexHandler
+from src.handlers.apex.apex_config import ApexHandlerConfig
 from src.handlers.handler_config import HandlerConfig
 from src.handlers.ssh.ssh import SSHHandler
 from src.handlers.ssh.ssh_config import SSHHandlerConfig
@@ -85,6 +87,27 @@ class ConfigTest(unittest.TestCase):
         self.assertRaises(KeyNotValidTypeException, self.config.get_handler_config, instance)
 
         config_data.pop("ssh_port")
+        instance["config"] = config_data
+        self.assertRaises(KeyNotFoundException, self.config.get_handler_config, instance)
+
+    def test_6_apex_handler(self):
+        instance: dict = {
+            "handler": "apex",
+            "config": {
+                "panel_user": "apex",
+                "panel_pass": "pass"
+            }
+        }
+        config_data: dict = instance.get("config")
+        handler, config = self.config.get_handler_config(instance)
+        self.assertEqual(handler, ApexHandler)
+        apex_config: ApexHandlerConfig = ApexHandlerConfig(
+            config_data.get("panel_user"),
+            config_data.get("panel_pass")
+        )
+        self.assertDictEqual(config.__dict__, apex_config.__dict__)
+
+        config_data.pop("panel_pass")
         instance["config"] = config_data
         self.assertRaises(KeyNotFoundException, self.config.get_handler_config, instance)
 
