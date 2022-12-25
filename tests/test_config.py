@@ -1,6 +1,7 @@
 import unittest
 
-from src.config.config import Config, KCPConfigException, KeyNotFoundException, KeyNotValidTypeException
+from src.config.config import Config, KCPConfigException, KeyNotFoundException, KeyNotValidTypeException, \
+    InvalidHandlerException
 from src.handlers.apex.apex import ApexHandler
 from src.handlers.apex.apex_config import ApexHandlerConfig
 from src.handlers.handler_config import HandlerConfig
@@ -110,6 +111,13 @@ class ConfigTest(unittest.TestCase):
         config_data.pop("panel_pass")
         instance["config"] = config_data
         self.assertRaises(KeyNotFoundException, self.config.get_handler_config, instance)
+
+    def test_7_no_handler(self):
+        instance: dict = {}
+        self.assertRaises(KeyNotFoundException, self.config.get_handler_config, instance)
+
+        instance: dict = {"handler": "idk"}
+        self.assertRaises(InvalidHandlerException, self.config.get_handler_config, instance)
 
 
 if __name__ == "__main__":
