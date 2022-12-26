@@ -16,4 +16,4 @@
 - [x] unique resources names with cleanup
 - [ ] interactive CLI
 - [ ] README would be nice...
-- [ ] testing
+- [x] testing

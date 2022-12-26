@@ -70,9 +70,8 @@ class Config:
 
     def _process_server(self) -> KCPHandler:
         server: dict = self._get_key(self._config_data, "server", dict)
-        handler: str = self._get_key(server, "handler")
-        kcp_config: KCPConfig = self._get_kcp_config(server, "server")
-        kcp_handler, handler_config = self._get_handler_config(server, handler)  # type: Type[KCPHandler], HandlerConfig
+        kcp_config: KCPConfig = self.get_kcp_config(server, "server")
+        kcp_handler, handler_config = self.get_handler_config(server)  # type: Type[KCPHandler], HandlerConfig
         return kcp_handler(self._bot_logger, ServiceMode.SERVER, kcp_config, handler_config)
 
     def _process_clients(self) -> list[KCPHandler]:
@@ -83,9 +82,8 @@ class Config:
         return client_handlers
 
     def _process_client(self, client: dict) -> KCPHandler:
-        handler: str = self._get_key(client, "handler")
-        kcp_config: KCPConfig = self._get_kcp_config(client, "client")
-        kcp_handler, handler_config = self._get_handler_config(client, handler)  # type: Type[KCPHandler], HandlerConfig
+        kcp_config: KCPConfig = self.get_kcp_config(client, "client")
+        kcp_handler, handler_config = self.get_handler_config(client)  # type: Type[KCPHandler], HandlerConfig
         return kcp_handler(self._bot_logger, ServiceMode.CLIENT, kcp_config, handler_config)
 
     @classmethod
@@ -100,7 +98,8 @@ class Config:
             raise KeyNotValidTypeException(f"{key} has an invalid type! found {key_type}, expected {type_}")
         return k
 
-    def _get_handler_config(self, instance: dict, handler_type: str) -> (Type[KCPHandler], HandlerConfig):
+    def get_handler_config(self, instance: dict) -> (Type[KCPHandler], HandlerConfig):
+        handler_type: str = self._get_key(instance, "handler")
         if handler_type == "system":
             return SystemHandler, HandlerConfig()
         elif handler_type == "ssh":
@@ -118,7 +117,7 @@ class Config:
         else:
             raise InvalidHandlerException(f"Unable to parse config for handler named: {handler_type}!")
 
-    def _get_kcp_config(self, instance: dict, svc_type: str) -> KCPConfig:
+    def get_kcp_config(self, instance: dict, svc_type: str) -> KCPConfig:
         kcp_config: dict = self._get_key(instance, "kcp", dict)
         listen_addr: str = self._get_key(kcp_config, "listen")
         password: str = self._get_key(kcp_config, "password")
@@ -130,5 +129,7 @@ class Config:
             remote_addr: str = target_addr
         if svc_type == "client":
             return KCPClientConfig(remote_addr, listen_addr, password)
-        else:
+        elif svc_type == "server":
             return KCPServerConfig(remote_addr, listen_addr, password)
+        else:
+            raise KCPConfigException("invalid service type")
